@@ -506,10 +506,10 @@ index 00000000..98f93a76
 +}
 diff --git a/source/kernel/devs/vstbridge_abi.h b/source/kernel/devs/vstbridge_abi.h
 new file mode 100644
-index 00000000..6043240d
+index 00000000..129b8d41
 --- /dev/null
 +++ b/source/kernel/devs/vstbridge_abi.h
-@@ -0,0 +1,266 @@
+@@ -0,0 +1,268 @@
 +#pragma once
 +
 +/*
@@ -637,6 +637,8 @@ index 00000000..6043240d
 +    VSTB_OP_GET_STATE = 4, /* -> vstb state blob (see vsthost) */
 +    VSTB_OP_SET_STATE = 5, /* vstb state blob -> "" */
 +    VSTB_OP_UNLOAD = 6,    /* -> "" */
++    VSTB_OP_PUT_FILE = 7,  /* u32 offset, u32 total, u32 pathBytes, path, bytes -> "": writes a guest file
++                              in pieces (files the page writes into Emscripten's FS are invisible to Wine) */
 +    VSTB_OP_KICK = 100,    /* guest only: written on the control handle, wakes channel's instance thread */
 +};
 +

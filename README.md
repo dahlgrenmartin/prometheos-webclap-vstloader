@@ -30,6 +30,9 @@ browser page (web/)                        Boxedwine (WebAssembly)
 
 | Path | What |
 |---|---|
+| `host/bridge.cpp`, `host/vst2_instance.cpp` | `vsthost --bridge`: real-time hosting through `/dev/vstbridge` (one thread per plugin instance), and `vsthost --replay`, the offline reference that renders a captured request stream through the same code. |
+| `include/vstbridge_abi.h` | The shared-memory layout of `/dev/vstbridge` (the single source of truth; `vstbridge_abi.json` is its golden layout, checked against the JS and TypeScript twins and the patch's copy). |
+| `web/realtime.html` | Streams a plugin live into an AudioWorklet (on-screen keyboard, computer keys, Web MIDI), with underrun and block-time readouts; `tests/realtime.mjs` and `tests/identity.mjs` drive it headlessly. |
 | `host/vsthost.cpp` | The Windows-side host (MinGW, i686). VST2 through a clean-room ABI header, VST3 through Steinberg's MIT-licensed `pluginterfaces` only. One-shot mode, or persistent `--serve <dir>` mode that takes jobs from a mailbox file. Writes a WAV, a JSON report (plugin info, parameters with display text, peak/RMS, non-finite sample count, load/render time) and a stage trace. `--play` also sends the render to the Windows audio device (`waveOut`), which Boxedwine plays through browser audio. |
 | `include/vst2_abi.h` | The VST 2.4 binary interface written from the published ABI (as LMMS's VeSTige does); no Steinberg VST2 SDK code. |
 | `plugins/vst2`, `plugins/vst3` | "PoC Synth": the same 8-voice saw synth as a VST2 `.dll` and a VST3 `.vst3`, built here so the pipeline can be tested without third-party binaries. |
@@ -45,7 +48,16 @@ browser page (web/)                        Boxedwine (WebAssembly)
 
 ## Results
 
-Measured in headless Chromium (details and screenshots in
+**Real time:** Dexed streams live into an AudioWorklet from Boxedwine's
+multithreaded build through `/dev/vstbridge` (shared WebAssembly memory, Atomics
+wake-ups, no main thread on the audio path): 10 minutes of sequenced 8-voice
+chords at 48 kHz with **zero underruns at L = 2,048 frames**, and its output,
+shifted by L, is bit-identical to the offline render of the same requests. See
+[results.md](docs/results.md#real-time-phase-0-dexed-streamed-live-into-an-audioworklet).
+
+![Dexed streamed live for 10 minutes](docs/realtime-dexed-600s.png)
+
+**Offline:** measured in headless Chromium (details and screenshots in
 [docs/results.md](docs/results.md)):
 
 | Plugin | Format | Origin | In the browser (audio processing) | Natively (x64 JIT) |
@@ -96,11 +108,17 @@ git clone https://github.com/danoon2/Boxedwine && cd Boxedwine
 git checkout 509f6a7
 git apply /path/to/experiments/boxedwine-vst/patches/boxedwine/*.patch
 cd project/emscripten && make jit        # -> Build/Jit/boxedwine.{html,js,wasm}
+make multiThreadedJit                     # -> Build/MultiThreadedJit (the real-time page needs it)
 
 # The PoC (downloads the Wine filesystem zip; WITH_DEXED=1 adds Dexed 0.9.3 win32)
 cd experiments/boxedwine-vst
 BOXEDWINE_BUILD=/path/to/Boxedwine/project/emscripten/Build/Jit WITH_DEXED=1 ./build.sh
 python3 serve.py 8080 dist      # open http://127.0.0.1:8080/
+
+# Real time (multithreaded build): open /realtime.html
+BOXEDWINE_BUILD=/path/to/Boxedwine/project/emscripten/Build/MultiThreadedJit DIST=dist-mt WITH_DEXED=1 ./build.sh
+python3 serve.py 8080 dist-mt
+node tests/realtime.mjs http://127.0.0.1:8080 --plugin Dexed.dll --latency 2048 --seconds 600
 ```
 
 Emscripten fetches its zlib and SDL2 ports from GitHub archive URLs. Behind a
@@ -113,11 +131,8 @@ with a matching `.emscripten_url` marker.
 - **32-bit plugins only.** Boxedwine emulates 32-bit x86, so modern 64-bit-only
   plugins (most current releases) cannot load. Older free plugins often still
   ship 32-bit builds.
-- **Offline rendering, not real time.** The page asks for a render and gets a
-  WAV. Real-time hosting would stream audio blocks through a shared ring
-  buffer (as yabridge does with shared memory) and play them through an
-  AudioWorklet. `--play` shows the guest-to-browser audio path works through
-  `waveOut`.
+- **Real time needs the multithreaded build and L = 2,048 frames** (42.7 ms) for
+  Dexed; lighter plugins can run with less. `index.html` still renders offline.
 - **Speed.** Emulated plugin code runs about 100–200× slower than native.
   Dexed still processes at about 4× realtime, but heavier plugins will not fit;
   see [docs/performance.md](docs/performance.md).

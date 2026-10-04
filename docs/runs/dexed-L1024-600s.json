@@ -1,0 +1,126 @@
+{
+ "phase": "done",
+ "status": "Done: 600 s streamed, 80 underrun blocks.",
+ "bootSeconds": 31.206849999999626,
+ "loadMs": 11106.955000000075,
+ "benchLoadMs": 753.8700000001118,
+ "bench": {
+  "iterations": 2000,
+  "roundTripUs": {
+   "p50": 484.86328125,
+   "p90": 639.892578125,
+   "p99": 790.0390625,
+   "max": 7744.873046875,
+   "min": 409.912109375
+  },
+  "wakeHist": [
+   38,
+   0,
+   83,
+   779,
+   1049,
+   202,
+   30,
+   11,
+   1,
+   5,
+   1,
+   1,
+   0,
+   0,
+   0,
+   0
+  ],
+  "turnHist": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   1920,
+   269,
+   6,
+   4,
+   1,
+   0,
+   0,
+   0
+  ]
+ },
+ "stats": {
+  "type": "stats",
+  "frames": 28804608,
+  "underruns": 18304,
+  "underrunBlocks": 80,
+  "blocksPlayed": 112451,
+  "minMarginFrames": -2048,
+  "published": 112518,
+  "eventsSent": 19208,
+  "dropped": 0,
+  "seconds": 600.096,
+  "processUs": {
+   "p50": 2525,
+   "p90": 2825,
+   "p99": 4075,
+   "p999": 4800,
+   "max": 15700
+  },
+  "blockUs": 5333.333333333333,
+  "skipped": 0,
+  "maxProcessUs": 42000,
+  "wakeHist": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "turnHist": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   8,
+   19271,
+   2480,
+   89790,
+   949,
+   15,
+   2,
+   1
+  ]
+ },
+ "ping": "pong",
+ "audioContextState": "running",
+ "describe": {
+  "name": "Dexed",
+  "params": 155,
+  "inPorts": [],
+  "outPorts": [
+   {
+    "name": "1",
+    "kind": "main"
+   }
+  ],
+  "latency": 0
+ },
+ "wall": 645.269
+}

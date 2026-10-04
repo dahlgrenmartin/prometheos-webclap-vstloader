@@ -125,6 +125,8 @@ enum {
     VSTB_OP_GET_STATE = 4, /* -> vstb state blob (see vsthost) */
     VSTB_OP_SET_STATE = 5, /* vstb state blob -> "" */
     VSTB_OP_UNLOAD = 6,    /* -> "" */
+    VSTB_OP_PUT_FILE = 7,  /* u32 offset, u32 total, u32 pathBytes, path, bytes -> "": writes a guest file
+                              in pieces (files the page writes into Emscripten's FS are invisible to Wine) */
     VSTB_OP_KICK = 100,    /* guest only: written on the control handle, wakes channel's instance thread */
 };
 

@@ -49,6 +49,7 @@ export const VSTB = {
     OP_GET_STATE: 4,
     OP_SET_STATE: 5,
     OP_UNLOAD: 6,
+    OP_PUT_FILE: 7,
     OP_KICK: 100,
     STATUS_OK: 0,
     STATUS_ERROR: 1,

@@ -215,7 +215,8 @@ class Control {
                 if (readRecord(handle_, payload_, msg.length) != static_cast<long>(msg.length)) continue;
                 text.assign(reinterpret_cast<const char *>(payload_), msg.length);
             }
-            handle(msg, text);
+            if (msg.op == VSTB_OP_PUT_FILE) putFile(msg);
+            else handle(msg, text);
         }
     }
 
@@ -234,6 +235,28 @@ class Control {
     }
     void respond(const vstb_msg &request, int status, const std::string &text) {
         respond(request, status, text.data(), text.size());
+    }
+
+    // Writes one piece of a guest file: u32 offset, u32 total, u32 pathBytes, path, bytes.
+    void putFile(const vstb_msg &msg) {
+        uint32_t head[3] = {};
+        if (msg.length < sizeof head) return respond(msg, VSTB_STATUS_ERROR, "short PUT_FILE");
+        std::memcpy(head, payload_, sizeof head);
+        const uint32_t offset = head[0], total = head[1], pathBytes = head[2];
+        if (sizeof head + pathBytes > msg.length) return respond(msg, VSTB_STATUS_ERROR, "bad PUT_FILE path");
+        const std::string path(reinterpret_cast<const char *>(payload_) + sizeof head, pathBytes);
+        const uint8_t *data = payload_ + sizeof head + pathBytes;
+        const size_t size = msg.length - sizeof head - pathBytes;
+        for (size_t i = 3; i < path.size(); ++i)
+            if (path[i] == '\\' || path[i] == '/') CreateDirectoryA(path.substr(0, i).c_str(), nullptr);
+        FILE *f = std::fopen(path.c_str(), offset == 0 ? "wb" : "r+b");
+        if (!f) return respond(msg, VSTB_STATUS_ERROR, "cannot open " + path);
+        std::fseek(f, static_cast<long>(offset), SEEK_SET);
+        const size_t written = std::fwrite(data, 1, size, f);
+        std::fclose(f);
+        if (written != size) return respond(msg, VSTB_STATUS_ERROR, "short write to " + path);
+        if (offset + size == total) say("wrote %s (%u bytes)", path.c_str(), total);
+        respond(msg, VSTB_STATUS_OK, "");
     }
 
     // Runs a command on the instance's own thread.

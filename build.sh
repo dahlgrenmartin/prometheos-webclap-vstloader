@@ -27,6 +27,8 @@ mkdir -p build .cache app
 echo "== Windows binaries (MinGW i686)"
 $CC -O2 -std=c11 -Wall -shared -Iinclude plugins/vst2/poc_synth_vst2.c plugins/vst2/poc_synth_vst2.def \
   -o build/PoCSynth.dll -static-libgcc -lm
+$CC -O2 -std=c11 -Wall -shared -Iinclude plugins/vst2/poc_invert_vst2.c plugins/vst2/poc_invert_vst2.def \
+  -o build/PoCInvert.dll -static-libgcc
 $CXX -O2 -std=c++17 -Wall -shared -Iinclude -Ivendor plugins/vst3/poc_synth_vst3.cpp plugins/vst3/poc_synth_vst3.def \
   -o build/PoCSynth.vst3 -static -Wl,--kill-at -Wl,--enable-stdcall-fixup
 $CXX -O2 -std=c++17 -Wall -Iinclude -Ivendor host/vsthost.cpp host/bridge.cpp host/vst2_instance.cpp \
@@ -36,9 +38,10 @@ $CC -O2 -Wall tests/devtest.c -o build/devtest.exe
 
 plugins_json='[
   {"file": "PoCSynth.dll", "label": "PoC Synth", "format": "vst2", "note": "test plugin built here"},
-  {"file": "PoCSynth.vst3", "label": "PoC Synth", "format": "vst3", "note": "test plugin built here"}'
+  {"file": "PoCSynth.vst3", "label": "PoC Synth", "format": "vst3", "note": "test plugin built here"},
+  {"file": "PoCInvert.dll", "label": "PoC Invert", "format": "vst2", "note": "test effect built here: output = -input"}'
 rm -rf app && mkdir app
-cp build/vsthost.exe build/PoCSynth.dll build/PoCSynth.vst3 build/devtest.exe app/
+cp build/vsthost.exe build/PoCSynth.dll build/PoCInvert.dll build/PoCSynth.vst3 build/devtest.exe app/
 if [ "${WITH_DEXED:-0}" = 1 ]; then
   echo "== Dexed 0.9.3 (third-party 32-bit Windows VST2)"
   [ -f .cache/dexed-0.9.3-win.zip ] || curl -fsSL -o .cache/dexed-0.9.3-win.zip "$DEXED_URL"

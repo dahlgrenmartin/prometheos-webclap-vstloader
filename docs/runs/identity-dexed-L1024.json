@@ -1,0 +1,24 @@
+{
+  "plugin": "Dexed.dll",
+  "latency": 1024,
+  "block": 256,
+  "blocks": 2813,
+  "identical": 2813,
+  "silentInRealtime": 0,
+  "mismatched": 0,
+  "firstMismatch": -1,
+  "maxDiffInMismatches": 0,
+  "referencePeak": 0.7938934564590454,
+  "replay": {
+    "ok": true,
+    "error": "",
+    "blocks": 2813,
+    "blockFrames": 256,
+    "sampleRate": 48000,
+    "outPorts": 1,
+    "loadMs": 9011,
+    "processMs": 6572,
+    "realtimeFactor": 2.283
+  },
+  "seconds": 34.712
+}

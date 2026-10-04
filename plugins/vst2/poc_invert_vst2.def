@@ -1,0 +1,4 @@
+LIBRARY PoCInvert
+EXPORTS
+    VSTPluginMain
+    main=VSTPluginMain
