@@ -346,6 +346,7 @@ struct Replay {
     std::string error;
     double processMs = 0, loadMs = 0;
     uint32_t blocks = 0;
+    std::string slowBlocks; // "[block, ms]" pairs for blocks that took 8 ms or more (first 64)
     ReplayHeader header{};
 };
 
@@ -386,10 +387,16 @@ DWORD WINAPI replayMain(void *arg) {
     const uint32_t blocks = std::min<uint32_t>(h.blocks, (capture.size() - sizeof h) / record);
     std::vector<float> out(static_cast<size_t>(blocks) * outFloats);
     const double t1 = nowMs();
+    int slow = 0;
     for (uint32_t k = 0; k < blocks; ++k) {
         const uint8_t *rec = capture.data() + sizeof h + k * record;
+        const double b0 = nowMs();
         plugin.process(*reinterpret_cast<const vstb_request *>(rec), reinterpret_cast<const float *>(rec + VSTB_REQUEST_BYTES),
                        out.data() + k * outFloats);
+        const double ms = nowMs() - b0;
+        if (ms >= 8.0 && slow++ < 64) {
+            job.slowBlocks += (job.slowBlocks.empty() ? "[" : ",[") + std::to_string(k) + "," + std::to_string(static_cast<int>(ms)) + "]";
+        }
     }
     job.processMs = nowMs() - t1;
     job.blocks = blocks;
@@ -432,13 +439,13 @@ int runReplay(int argc, char **argv) {
     HANDLE thread = CreateThread(nullptr, 1 << 20, replayMain, &job, 0, nullptr);
     WaitForSingleObject(thread, INFINITE);
     const double seconds = job.header.sampleRate ? double(job.blocks) * job.header.blockFrames / job.header.sampleRate : 0;
-    char report[1024];
+    char report[2048];
     std::snprintf(report, sizeof report,
                   "{\"ok\":%s,\"error\":\"%s\",\"blocks\":%u,\"blockFrames\":%u,\"sampleRate\":%u,\"outPorts\":%u,"
-                  "\"loadMs\":%.1f,\"processMs\":%.1f,\"realtimeFactor\":%.3f}\n",
+                  "\"loadMs\":%.1f,\"processMs\":%.1f,\"realtimeFactor\":%.3f,\"slowBlocks\":[%s]}\n",
                   job.status ? "false" : "true", jsonEscape(job.error).c_str(), job.blocks, job.header.blockFrames,
                   job.header.sampleRate, job.header.outPorts, job.loadMs, job.processMs,
-                  job.processMs > 0 ? seconds * 1000.0 / job.processMs : 0.0);
+                  job.processMs > 0 ? seconds * 1000.0 / job.processMs : 0.0, job.slowBlocks.c_str());
     if (FILE *f = std::fopen((job.out + ".json").c_str(), "wb")) {
         std::fputs(report, f);
         std::fclose(f);

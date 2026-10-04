@@ -137,10 +137,11 @@ void Vst2Instance::close() {
                          gInstances.end());
         effect_ = nullptr;
     }
-    if (dll_) {
-        FreeLibrary(dll_);
-        dll_ = nullptr;
-    }
+    // The module stays loaded for the life of the process, as when instances
+    // of one plugin share it: unmapping a plugin's code made Boxedwine's
+    // multithreaded JIT panic (KMemory::commitPreparedCodeInvalidation) on the
+    // third unload of Dexed, and a later instance reuses the translated code.
+    dll_ = nullptr;
 }
 
 bool Vst2Instance::takeIoChanged() {
@@ -215,12 +216,22 @@ void Vst2Instance::process(const vstb_request &request, const float *inputs, flo
 }
 
 void Vst2Instance::warmUp() {
-    // About 3 s of audio: 8-note chords across the keyboard every quarter
-    // second at varied velocities (voice allocation, envelopes and the note
-    // path in every register get translated by the JIT), then their release.
-    const int blocksPerChord = std::max(1, static_cast<int>(std::lround(rate * 0.25 / block_)));
-    const int chords = 10;
-    const int blocks = blocksPerChord * (chords + 2);
+    // About 7 s of audio, so the code a song reaches gets translated by the
+    // JIT before the stream starts rather than in the live path:
+    //  1. 8-note chords across the keyboard every quarter second at varied
+    //     velocities, each released as the next starts (voice allocation,
+    //     envelopes, the note path in every register);
+    //  2. with the transport playing, detached chords held 0.2 s and followed
+    //     by 0.8 s of silence, so released voices decay completely before
+    //     they are reused (a song's first chord after a rest reached this
+    //     path live: a 15-50 ms turn at L = 2,048 in buzz-remote).
+    const int perQuarter = std::max(1, static_cast<int>(std::lround(rate * 0.25 / block_)));
+    const int legatoChords = 10;
+    const int legatoBlocks = perQuarter * (legatoChords + 2);
+    const int detachedChords = 4;
+    const int heldBlocks = std::max(1, static_cast<int>(std::lround(rate * 0.2 / block_)));
+    const int perDetached = perQuarter * 4; // 1 s per chord
+    const int blocks = legatoBlocks + perDetached * detachedChords;
     std::vector<float> in(std::max(1, inPorts_) * 2 * block_), out(outPorts_ * 2 * block_);
     vstb_request request{};
     request.frames = block_;
@@ -228,6 +239,7 @@ void Vst2Instance::warmUp() {
     request.connectedMask = 0xffffffffu;
     const int voicing[8] = {0, 7, 12, 16, 19, 24, 28, 31};
     auto chordNote = [&](int chord, int v) { return static_cast<uint8_t>(24 + (chord * 7) % 48 + voicing[v]); };
+    auto velocity = [&](int chord, int v) { return static_cast<uint8_t>(40 + (chord * 29 + v * 11) % 88); };
     for (int b = 0; b < blocks; ++b) {
         request.blockIndex = b;
         request.eventCount = 0;
@@ -240,14 +252,26 @@ void Vst2Instance::warmUp() {
             ev.midi[1] = data1;
             ev.midi[2] = data2;
         };
-        if (b % blocksPerChord == 0) {
-            const int chord = b / blocksPerChord;
-            if (chord > 0 && chord <= chords)
-                for (int v = 0; v < 8; ++v) add(0x80, chordNote(chord - 1, v), 0);
-            if (chord < chords)
-                for (int v = 0; v < 8; ++v) add(0x90, chordNote(chord, v), static_cast<uint8_t>(40 + (chord * 29 + v * 11) % 88));
+        if (b < legatoBlocks) {
+            if (b % perQuarter == 0) {
+                const int chord = b / perQuarter;
+                if (chord > 0 && chord <= legatoChords)
+                    for (int v = 0; v < 8; ++v) add(0x80, chordNote(chord - 1, v), 0);
+                if (chord < legatoChords)
+                    for (int v = 0; v < 8; ++v) add(0x90, chordNote(chord, v), velocity(chord, v));
+            }
+            if (b == legatoBlocks - 1) add(0xB0, 123, 0); // all notes off
+        } else {
+            const int d = b - legatoBlocks;
+            const int chord = legatoChords + d / perDetached;
+            request.flags = VSTB_REQ_PLAYING;
+            request.samplePos = static_cast<double>(d) * block_;
+            request.ppqPos = request.samplePos / rate * (request.tempo / 60.0);
+            if (d % perDetached == 0)
+                for (int v = 0; v < 8; ++v) add(0x90, chordNote(chord, v), velocity(chord, v));
+            if (d % perDetached == heldBlocks)
+                for (int v = 0; v < 8; ++v) add(0x80, chordNote(chord, v), 0);
         }
-        if (b == blocks - 1) add(0xB0, 123, 0); // all notes off
         // A decaying saw chord for effects.
         for (int f = 0; f < block_; ++f) {
             const double t = static_cast<double>(b * block_ + f) / rate;
