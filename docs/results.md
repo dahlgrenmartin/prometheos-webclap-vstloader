@@ -41,7 +41,7 @@ Boxedwine `509f6a7` plus patches 0001-0004, the **`multiThreadedJit`** target
 `ChordSequencer` in `web/realtime-worklet.js`, a new 8-note chord every 0.5 s
 (off the block grid, varied velocity), held 0.4 s: 8 voices plus release tails.
 48 kHz, block B = 256 frames (5.33 ms budget per block). Plan:
-[Phase 0](../../../apps/buzz-remote/docs/superpowers/plans/2026-10-04-realtime-windows-plugins-phase0.md).
+[Phase 0](design/2026-10-04-realtime-windows-plugins-phase0.md).
 
 ### Gate 1: the multithreaded build (task 1)
 

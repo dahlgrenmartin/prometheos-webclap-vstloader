@@ -1,7 +1,20 @@
-# Windows VST plugins in the browser (Boxedwine proof of concept)
+# prometheos-webclap-vstloader
 
-This experiment runs **unmodified 32-bit Windows VST2 and VST3 plugin binaries
-inside a browser tab**. A Windows host program loads the plugin under Wine,
+Runs **unmodified 32-bit Windows VST2 and VST3 plugin binaries inside a browser
+tab**, in real time.
+
+This repository was split out of
+[prometheos-apps](https://github.com/dahlgrenmartin/prometheos-apps)
+(`experiments/boxedwine-vst`, with its history) because Boxedwine is GPL: the
+emulator, its patches and everything built around them live here, and
+buzz-remote only loads the result as a WebCLAP plugin. The next step is that
+WebCLAP: a thin real-time shim that runs in the host's AudioWorklet and talks to
+the emulator through shared memory (see the
+[design spec](docs/design/2026-10-04-realtime-windows-plugins-design.md) and
+the plan in "Next" below).
+
+The rest of this README describes the proof of concept and the real-time bridge.
+A Windows host program loads the plugin under Wine,
 inside [Boxedwine](https://github.com/danoon2/Boxedwine), an x86 emulator that
 compiles to WebAssembly with Emscripten. The audio the plugin renders comes back
 to the web page, which decodes, draws and plays it.
@@ -44,7 +57,7 @@ browser page (web/)                        Boxedwine (WebAssembly)
 | `tests/` | `browser_render.mjs` (headless Chromium end-to-end), `fputest.c` and `wintest.c` (emulator diagnostics). |
 | `docs/results.md` | Measurements, and the problems found and fixed on the way. |
 | `docs/performance.md` | Why emulation is slow next to yabridge, and the options for real-time use. |
-| [real-time design spec](../../apps/buzz-remote/docs/superpowers/specs/2026-10-04-realtime-windows-plugins-design.md) | Design spec and [Phase 0 plan](../../apps/buzz-remote/docs/superpowers/plans/2026-10-04-realtime-windows-plugins-phase0.md) for real-time Windows plugins in buzz-remote, browser-only. |
+| [real-time design spec](docs/design/2026-10-04-realtime-windows-plugins-design.md) | Design spec and [Phase 0 plan](docs/design/2026-10-04-realtime-windows-plugins-phase0.md) for real-time Windows plugins in buzz-remote, browser-only. |
 
 ## Results
 
@@ -101,17 +114,17 @@ Boxedwine `509f6a7` (2026-10-02) was used with two local patches:
 Requirements: `i686-w64-mingw32-gcc/g++`, an Emscripten SDK, Python 3, `zip`.
 
 ```bash
-git submodule update --init experiments/boxedwine-vst/vendor/pluginterfaces
+git submodule update --init vendor/pluginterfaces
 
 # Boxedwine for the browser
 git clone https://github.com/danoon2/Boxedwine && cd Boxedwine
 git checkout 509f6a7
-git apply /path/to/experiments/boxedwine-vst/patches/boxedwine/*.patch
+git apply /path/to/prometheos-webclap-vstloader/patches/boxedwine/*.patch
 cd project/emscripten && make jit        # -> Build/Jit/boxedwine.{html,js,wasm}
 make multiThreadedJit                     # -> Build/MultiThreadedJit (the real-time page needs it)
 
 # The PoC (downloads the Wine filesystem zip; WITH_DEXED=1 adds Dexed 0.9.3 win32)
-cd experiments/boxedwine-vst
+cd prometheos-webclap-vstloader
 BOXEDWINE_BUILD=/path/to/Boxedwine/project/emscripten/Build/Jit WITH_DEXED=1 ./build.sh
 python3 serve.py 8080 dist      # open http://127.0.0.1:8080/
 
@@ -119,12 +132,11 @@ python3 serve.py 8080 dist      # open http://127.0.0.1:8080/
 BOXEDWINE_BUILD=/path/to/Boxedwine/project/emscripten/Build/MultiThreadedJit DIST=dist-mt WITH_DEXED=1 ./build.sh
 python3 serve.py 8080 dist-mt
 node tests/realtime.mjs http://127.0.0.1:8080 --plugin Dexed.dll --latency 2048 --seconds 600
-
-# buzz-remote's winvst machine against these builds (dist-mt live, dist-st for the replay)
-cd ../../apps/buzz-remote
-node tests/winvst-browser/build.mjs
-node tests/winvst-browser/run.mjs --scenarios song,null,bzw --plugin Dexed.dll --seconds 600
 ```
+
+The Phase 1 measurements in `docs/results.md` were taken with buzz-remote's
+in-tree `winvst` machine and its `tests/winvst-browser` harness (prometheos-apps
+branch `feat/buzz-winvst-mvp`), which the WebCLAP replaces.
 
 Emscripten fetches its zlib and SDL2 ports from GitHub archive URLs. Behind a
 proxy that refuses those, clone `madler/zlib@v1.3.2` and
@@ -152,9 +164,27 @@ with a matching `.emscripten_url` marker.
   starts from a fresh in-memory prefix. Boxedwine can persist the prefix and its
   JIT cache in IndexedDB, which would make later visits faster.
 
+## Next: the WebCLAP
+
+1. **Shim** (`wclap/`, C, wasi-sdk): a WebCLAP whose `process()` does what
+   buzz-remote's `WinVstMachine` did: one request per 256-frame block into
+   rings in its own shared memory, output read L frames later, `clap.latency`
+   = L + the plugin's delay, parameters and ports from a descriptor frozen at
+   wrap time, state through the plugin's chunk.
+2. **Runtime**: Boxedwine (multithreaded) with `vsthost --bridge`, in a hidden
+   frame the host loads once for all wrapped plugins, plus a relay worker that
+   moves each block between the shim's memory and `/dev/vstbridge`. Audio never
+   touches the main thread.
+3. **Wrapper**: a `.dll` in, a `.wclap` bundle out (shim, the DLL, the frozen
+   descriptor and the runtime's URL and integrity hash).
+4. **Gate**: the Phase 1 numbers through buzz-remote's WebCLAP path: Dexed
+   10 minutes with 0 underruns at L = 2,048, output bit-identical to
+   `vsthost --replay`, the invert null and the `.bzw` round trip.
+
 ## Licenses
 
-- `vsthost`, the test plugins and the page: GPL-3.0 (this directory).
+- This repository (`vsthost`, the bridge, the patches, the test plugins and
+  pages): GPL-3.0 (`LICENSE`).
 - `vendor/pluginterfaces`: MIT (Steinberg Media Technologies).
 - Boxedwine: GPL-2.0-or-later. Wine: LGPL-2.1-or-later.
 - Dexed (optional download, not committed): GPL-3.0.

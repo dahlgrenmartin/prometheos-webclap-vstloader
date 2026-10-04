@@ -6,7 +6,7 @@
 #      zip, vstpoc.zip and the demo page.
 #
 # Environment:
-#   BOXEDWINE_BUILD  Boxedwine Emscripten output dir (default ../../../boxedwine/project/emscripten/Build/Jit;
+#   BOXEDWINE_BUILD  Boxedwine Emscripten output dir (default ../boxedwine/project/emscripten/Build/Jit;
 #                    the real-time page needs Build/MultiThreadedJit with patches 0003/0004)
 #   DIST             output directory for the static site (default dist)
 #   WINE_FS_ZIP      Boxedwine Wine filesystem zip (default: downloaded to .cache/)
@@ -18,7 +18,7 @@ cd "$here"
 
 CC=${CC:-i686-w64-mingw32-gcc}
 CXX=${CXX:-i686-w64-mingw32-g++}
-BOXEDWINE_BUILD=${BOXEDWINE_BUILD:-$here/../../../boxedwine/project/emscripten/Build/Jit}
+BOXEDWINE_BUILD=${BOXEDWINE_BUILD:-$here/../boxedwine/project/emscripten/Build/Jit}
 WINE_FS_URL=https://boxedwine.org/v2/10/TinyCore15Wine11.0.zip
 WINE_FS_SHA256=e38234f93e85b1714c54f87ec3246a8275683b091219a8a4651ea7e3acd16b79
 DEXED_URL=https://github.com/asb2m10/dexed/releases/download/v0.9.3/dexed-0.9.3-win.zip

@@ -1,0 +1,41 @@
+name: ci
+
+# The Windows side: vsthost.exe and the VST2/VST3 test plugins, cross-compiled
+# with MinGW, and the vstbridge layout checks. The Boxedwine/Emscripten build
+# and the browser tests are run by hand (see README.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-binaries:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize VST3 pluginterfaces
+        run: git submodule update --init vendor/pluginterfaces
+      - name: Install MinGW (i686)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-mingw-w64-i686 g++-mingw-w64-i686 zip
+      - name: Build vsthost.exe and the test plugins
+        run: |
+          BUILD_SITE=0 ./build.sh
+          i686-w64-mingw32-objdump -p build/PoCSynth.dll | grep -E 'VSTPluginMain|\bmain\b'
+          i686-w64-mingw32-objdump -p build/PoCSynth.vst3 | grep GetPluginFactory
+          node --check web/app.js
+      - name: vstbridge layout (C header, golden JSON, JS twin, Boxedwine patch copy)
+        run: node tests/abi_layout.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vstloader-windows
+          path: |
+            build/vstpoc.zip
+            build/vstpoc-prefix.zip
