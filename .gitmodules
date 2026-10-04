@@ -1,3 +1,6 @@
 [submodule "vendor/pluginterfaces"]
 	path = vendor/pluginterfaces
 	url = https://github.com/steinbergmedia/vst3_pluginterfaces.git
+[submodule "vendor/clap"]
+	path = vendor/clap
+	url = https://github.com/free-audio/clap
