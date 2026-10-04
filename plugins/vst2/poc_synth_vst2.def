@@ -1,0 +1,4 @@
+LIBRARY PoCSynth
+EXPORTS
+    VSTPluginMain
+    main=VSTPluginMain

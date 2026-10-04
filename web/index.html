@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windows VSTs in the Browser</title>
+<style>
+  :root {
+    --bg: #f4f4f1; --fg: #1d2025; --muted: #5d636b; --card: #ffffff; --line: #d9dad6;
+    --accent: #2f7fe0; --accent-ink: #ffffff; --ok: #1f8a4c; --bad: #c0392b; --wave: #2f7fe0; --code: #eef0f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #15171a; --fg: #e9eaec; --muted: #9aa0a8; --card: #1d2025;
+      --line: #2c3037; --accent: #4c95f0; --accent-ink: #0b0d10; --ok: #46c47e; --bad: #ef6b5d; --wave: #6aa8f5; --code: #262a31; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .controls { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; align-items: end; }
+  @media (max-width: 640px) { .controls { grid-template-columns: 1fr 1fr; } }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+  select, input { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
+  button { padding: 9px 18px; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  a.button { display: inline-block; padding: 8px 16px; border-radius: 6px; font-weight: 600; text-decoration: none; }
+  .secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .status { display: flex; gap: 10px; align-items: center; font-size: 0.9rem; margin-top: 12px; min-height: 1.5em; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.busy { background: var(--accent); animation: pulse 1s infinite; }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  canvas { width: 100%; height: 140px; display: block; background: var(--bg); border-radius: 6px; }
+  .result-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .result-head h2 { margin: 0; font-size: 1.1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  td, th { text-align: left; padding: 5px 8px 5px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .two > table { align-self: start; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+  details summary { cursor: pointer; color: var(--muted); }
+  iframe { width: 100%; height: 420px; border: 1px solid var(--line); border-radius: 6px; background: #000; margin-top: 10px; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Windows VST plugins in the browser</h1>
+  <p class="lede">Unmodified 32-bit Windows VST2 and VST3 binaries, loaded by a Windows host program running under
+  Wine inside <a href="https://github.com/danoon2/Boxedwine">Boxedwine</a> (an x86 emulator compiled to WebAssembly).
+  The host renders a chord and hands the audio back to this page.</p>
+
+  <section class="card" aria-labelledby="run-title">
+    <h2 id="run-title" class="muted" style="font-size:0.95rem;margin:0 0 12px">Render</h2>
+    <div class="controls">
+      <div>
+        <label for="plugin">Plugin (Windows binary)</label>
+        <select id="plugin"></select>
+      </div>
+      <div>
+        <label for="notes">MIDI notes</label>
+        <input id="notes" value="60,64,67" inputmode="numeric">
+      </div>
+      <div>
+        <label for="seconds">Seconds</label>
+        <input id="seconds" type="number" min="0.5" max="10" step="0.5" value="2">
+      </div>
+      <button id="render" type="button">Render</button>
+    </div>
+    <div class="status" role="status" aria-live="polite"><span class="dot" id="dot"></span><span id="status">Idle</span></div>
+  </section>
+
+  <section class="card" id="result" hidden aria-labelledby="result-title">
+    <div class="result-head">
+      <h2 id="result-title">Result</h2>
+      <div style="display:flex;gap:8px">
+        <button id="play" type="button">Play</button>
+        <a id="download" class="button secondary" download>Download WAV</a>
+      </div>
+    </div>
+    <canvas id="wave" width="1000" height="140" aria-label="Waveform of the rendered audio"></canvas>
+    <div class="two" style="margin-top:12px">
+      <table id="facts"></table>
+      <table id="params"></table>
+    </div>
+  </section>
+
+  <section class="card">
+    <details id="emu-details">
+      <summary>Emulator (Boxedwine running Wine)</summary>
+      <div id="frame-host"></div>
+    </details>
+  </section>
+
+  <p class="muted" style="font-size:0.85rem">How it works: <code>vsthost.exe</code> plays the role of yabridge's Wine-side
+  plugin host. It is a MinGW-built Windows program that loads the plugin with <code>LoadLibrary</code>, drives it
+  through its own ABI (VST2 <code>AEffect</code> or VST3 <code>IComponent</code>/<code>IAudioProcessor</code>) and writes
+  a WAV and a JSON report to <code>C:\vstpoc-out</code>, which this page reads from Emscripten's in-memory filesystem.</p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+diff --git a/source/emulation/cpu/common/fpu.cpp b/source/emulation/cpu/common/fpu.cpp
+index 5702c8c..cd4dd45 100644
+--- a/source/emulation/cpu/common/fpu.cpp
++++ b/source/emulation/cpu/common/fpu.cpp
+@@ -820,7 +820,9 @@ void FPU::FUCOM(CPU* cpu, int st, int other) {
+ void FPU::FRNDINT() {
+     if (isRegCached[this->top]) {
+         double value = this->regCache[this->top].d;
+-        double rounded = FROUND(value);
++        // FROUND leaves chop to its integer-store callers' casts; FRNDINT keeps a
++        // double, so truncate here (the x87 exp/pow idiom sets RC=chop first).
++        double rounded = this->round == ROUND_Chop ? trunc(value) : FROUND(value);
+         if (rounded == 0.0 && signbit(value)) {
+             this->regCache[this->top].d = -0.0;
+         } else {

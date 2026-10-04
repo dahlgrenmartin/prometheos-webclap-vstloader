@@ -1,0 +1,5 @@
+LIBRARY "PoCSynth.vst3"
+EXPORTS
+    GetPluginFactory
+    InitDll
+    ExitDll

@@ -1,0 +1,13 @@
+diff --git a/project/emscripten/makefile b/project/emscripten/makefile
+index bb32f9e..8d0de41 100644
+--- a/project/emscripten/makefile
++++ b/project/emscripten/makefile
+@@ -325,7 +325,7 @@ LINK_INPUTS += $(if $(findstring boxedwine-wasm-jit-module-broker.js,$(EXTRA_LD_
+ LINK_INPUTS += $(if $(findstring boxedwine-multithreaded-audio.js,$(EXTRA_LD_FLAGS)),boxedwine-multithreaded-audio.js,)
+ 
+ $(BUILD_DIR)/$(TARGET_EXEC): $(ALL) $(LINK_CONFIG) $(LINK_INPUTS)
+-	@$(CC) $(ALL) -o $@ $(LDFLAGS)
++	@$(CXX) $(ALL) -o $@ $(LDFLAGS)
+ 
+ # assembly
+ $(BUILD_DIR)/%.s.o: %.s $(COMPILE_CONFIG)
