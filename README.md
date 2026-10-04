@@ -7,11 +7,10 @@ This repository was split out of
 [prometheos-apps](https://github.com/dahlgrenmartin/prometheos-apps)
 (`experiments/boxedwine-vst`, with its history) because Boxedwine is GPL: the
 emulator, its patches and everything built around them live here, and
-buzz-remote only loads the result as a WebCLAP plugin. The next step is that
-WebCLAP: a thin real-time shim that runs in the host's AudioWorklet and talks to
-the emulator through shared memory (see the
-[design spec](docs/design/2026-10-04-realtime-windows-plugins-design.md) and
-the plan in "Next" below).
+buzz-remote only loads the result as a WebCLAP plugin: a thin real-time shim
+that runs in the host's AudioWorklet and streams through shared memory to the
+emulator, which runs in a separate runtime page (see "The WebCLAP" below and
+the [design spec](docs/design/2026-10-04-realtime-windows-plugins-design.md)).
 
 The rest of this README describes the proof of concept and the real-time bridge.
 A Windows host program loads the plugin under Wine,
@@ -43,6 +42,11 @@ browser page (web/)                        Boxedwine (WebAssembly)
 
 | Path | What |
 |---|---|
+| `wclap/` | The vstloader WebCLAP (`vstloader.c`, built by `wclap/build.sh` with wasi-sdk) and its frame protocol with the runtime. |
+| `runtime/` | The runtime page a host loads for the WebCLAP: boots Boxedwine, loads instances, relays blocks (`relay-worker.js`). |
+| `wrap/wrap.mjs` | Wraps a 32-bit `.dll` into a `.wclap` bundle. |
+| `include/prometheos_runtime.h` | The `prometheos.runtime/1` CLAP extension (plugin and host sides). |
+| `tests/buzz-remote/` | The wrapped plugins inside buzz-remote's real engine, in headless Chromium. |
 | `host/bridge.cpp`, `host/vst2_instance.cpp` | `vsthost --bridge`: real-time hosting through `/dev/vstbridge` (one thread per plugin instance), and `vsthost --replay`, the offline reference that renders a captured request stream through the same code. |
 | `include/vstbridge_abi.h` | The shared-memory layout of `/dev/vstbridge` (the single source of truth; `vstbridge_abi.json` is its golden layout, checked against the JS and TypeScript twins and the patch's copy). |
 | `web/realtime.html` | Streams a plugin live into an AudioWorklet (on-screen keyboard, computer keys, Web MIDI), with underrun and block-time readouts; `tests/realtime.mjs` and `tests/identity.mjs` drive it headlessly. |
@@ -164,22 +168,63 @@ with a matching `.emscripten_url` marker.
   starts from a fresh in-memory prefix. Boxedwine can persist the prefix and its
   JIT cache in IndexedDB, which would make later visits faster.
 
-## Next: the WebCLAP
+## The WebCLAP
 
-1. **Shim** (`wclap/`, C, wasi-sdk): a WebCLAP whose `process()` does what
-   buzz-remote's `WinVstMachine` did: one request per 256-frame block into
-   rings in its own shared memory, output read L frames later, `clap.latency`
-   = L + the plugin's delay, parameters and ports from a descriptor frozen at
-   wrap time, state through the plugin's chunk.
-2. **Runtime**: Boxedwine (multithreaded) with `vsthost --bridge`, in a hidden
-   frame the host loads once for all wrapped plugins, plus a relay worker that
-   moves each block between the shim's memory and `/dev/vstbridge`. Audio never
-   touches the main thread.
-3. **Wrapper**: a `.dll` in, a `.wclap` bundle out (shim, the DLL, the frozen
-   descriptor and the runtime's URL and integrity hash).
-4. **Gate**: the Phase 1 numbers through buzz-remote's WebCLAP path: Dexed
-   10 minutes with 0 underruns at L = 2,048, output bit-identical to
-   `vsthost --replay`, the invert null and the `.bzw` round trip.
+A wrapped Windows plugin is an ordinary WebCLAP bundle. A host that supports
+the `prometheos.runtime/1` extension (`include/prometheos_runtime.h`; buzz-remote
+does) installs and plays it like any other WebCLAP; the emulator is a separate
+runtime page it loads once for every wrapped plugin.
+
+```text
+host AudioWorklet                         runtime page (hidden frame, the host's origin)
+  vstloader.wasm (the shim, per bundle)      Boxedwine (MT) + vsthost --bridge
+    process(): one request per 256 frames      /dev/vstbridge channel n
+    into a vstbridge channel in its own           ▲ requests        │ answered blocks
+    shared memory; output read L later            │                 ▼
+    clap.latency = L + plugin delay           relay workers (2 per instance, futex waits)
+         ▲ shared WebAssembly.Memory ─────────────┘ copy blocks both ways
+host main thread: loads the page, hands it the memory, relays control frames
+```
+
+- **Shim** (`wclap/vstloader.c`, wasi-sdk, `wasm32-wasip1-threads` with an
+  imported shared memory): what buzz-remote's in-tree `WinVstMachine` did, as
+  CLAP. Parameters, ports, notes and the plugin's delay come from
+  `resources/vstloader.txt`, frozen when the `.dll` was wrapped; `clap.state`
+  is the plugin's chunk as the runtime last reported it (refreshed after
+  parameter changes). No allocation in `process()`; silence until the runtime
+  has loaded the plugin.
+- **Runtime** (`runtime/`): boots Boxedwine, uploads each binary once, loads
+  every instance into its own bridge channel (up to 7 at once; channel 8
+  describes binaries for the wrapper) and runs two relay workers per instance.
+  The workers block on futexes on both sides, so audio never touches an event
+  loop or the main thread. Frames between shim and runtime:
+  `wclap/vstloader_protocol.h` (`runtime/protocol.js`).
+- **Wrapper** (`wrap/wrap.mjs`): a 32-bit `.dll` in, a `.wclap` out
+  (`module.wasm`, `resources/plugin.dll`, `resources/vstloader.txt`), after one
+  DESCRIBE in the runtime.
+
+```bash
+# the site with the runtime (and the shim, with wasi-sdk)
+WASI_SDK=/path/to/wasi-sdk BOXEDWINE_BUILD=/path/to/Build/MultiThreadedJit DIST=dist-mt WITH_DEXED=1 ./build.sh
+python3 serve.py 8080 dist-mt &
+node wrap/wrap.mjs app/Dexed.dll --site http://127.0.0.1:8080 --runtime /vstloader/runtime/index.html --out build/wraps/Dexed.wclap
+
+# the wrapped plugins inside buzz-remote's real engine (song/identity, null, state round trip)
+node tests/buzz-remote/build.mjs --buzz /path/to/prometheos-apps/apps/buzz-remote
+node tests/buzz-remote/run.mjs --scenarios song,null,bzw --plugin Dexed --seconds 600
+```
+
+What a host needs to provide:
+
+- **Cross-origin isolation** (COOP/COEP), for shared memory.
+- **The runtime on its own origin.** The runtime page must share memory with
+  the AudioWorklet, and cross-origin isolated pages only share memory with
+  same-origin frames, so the host serves this repository's built site (here
+  under `/vstloader/`: `runtime/` and `boxedwine/`) and the bundle's
+  `runtime=` URL points there. The page then runs with the host's origin,
+  which is why hosts only load runtimes they trust.
+- **`prometheos.runtime/1`**: load the named page once, hand it each
+  instance's shared memory, relay frames (buzz-remote: `PluginRuntimeHost`).
 
 ## Licenses
 
