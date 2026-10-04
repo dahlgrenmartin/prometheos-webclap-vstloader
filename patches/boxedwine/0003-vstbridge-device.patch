@@ -1,0 +1,1089 @@
+diff --git a/include/devvstbridge.h b/include/devvstbridge.h
+new file mode 100644
+index 00000000..a9898b52
+--- /dev/null
++++ b/include/devvstbridge.h
+@@ -0,0 +1,12 @@
++#ifndef __DEVVSTBRIDGE_H__
++#define __DEVVSTBRIDGE_H__
++
++// /dev/vstbridge: shared-memory audio channels for a guest plugin host
++// (source/kernel/devs/devvstbridge.cpp, layout in vstbridge_abi.h).
++FsOpenNode* openDevVstBridge(const std::shared_ptr<FsNode>& node, U32 flags, U32 data);
++
++// The shared region (VSTB_REGION_BYTES). The page reads its address through the
++// exported vstbridge_region().
++U8* vstbridgeRegion();
++
++#endif
+diff --git a/project/emscripten/makefile b/project/emscripten/makefile
+index bb32f9e0..fd5d1222 100644
+--- a/project/emscripten/makefile
++++ b/project/emscripten/makefile
+@@ -52,7 +52,7 @@ jit: export SHELL_FILE := shell.html
+ # _malloc/_free + HEAPU32: used by boxedwine-shell.js (finishGroupRelocPatching,
+ # called from onRuntimeInitialized) to allocate and zero the per-entry reloc
+ # slot arrays patched into grouped cache modules.
+-jit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU32$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_import_from_file,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_malloc,_free
++jit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU32$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_import_from_file,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_vstbridge_region,_vstbridge_region_bytes,_malloc,_free
+ jit: export ASSET_FILES := boxedwine.css boxedwine-shell.js $(ZIP_ASSET_FILES)
+ # CI browser automation targets use the production runtime flags, plus recorder
+ # playback and --emrun so Jenkins can observe the browser exit status.
+@@ -69,7 +69,7 @@ automationMultiThreaded: export ASSET_FILES := boxedwine.css boxedwine-shell.js
+ automationJit: export BUILD_DIR := Build/AutomationJit
+ automationJit: export EXTRA_CPP_FLAGS := -DBOXEDWINE_WASM_JIT -DBOXEDWINE_RECORDER $(WASM_JIT_SIMD_FLAG)
+ automationJit: export SHELL_FILE := shell.html
+-automationJit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) --emrun -sEXIT_RUNTIME=1 -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU32$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_import_from_file,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_malloc,_free
++automationJit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) --emrun -sEXIT_RUNTIME=1 -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU32$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_import_from_file,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_vstbridge_region,_vstbridge_region_bytes,_malloc,_free
+ automationJit: export ASSET_FILES := boxedwine.css boxedwine-shell.js $(ZIP_ASSET_FILES)
+ # Like the test target but with the WASM JIT enabled, so the CPU test suite
+ # exercises JIT-compiled blocks instead of the normal interpreter.
+@@ -80,7 +80,7 @@ testJit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) --emrun -sALLOW_TABLE_GR
+ testMultiThreadedJit: export BUILD_DIR := Build/TestMultiThreadedJit
+ testMultiThreadedJit: export EXTRA_CPP_FLAGS := -D__TEST -DBOXEDWINE_MULTI_THREADED -DBOXEDWINE_WASM_JIT $(WASM_JIT_SIMD_FLAG) -pthread
+ testMultiThreadedJit: export SHELL_FILE := shelltest.html
+-testMultiThreadedJit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) --emrun -pthread -sPROXY_TO_PTHREAD=1 -sOFFSCREENCANVAS_SUPPORT=0 --pre-js=boxedwine-wasm-jit-module-broker.js --js-library=boxedwine-multithreaded-audio.js -sPTHREAD_POOL_SIZE=$(or $(PTHREAD_POOL_SIZE),32) -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU8$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_mt_register,_wasm_jit_mt_register_group,_wasm_jit_mt_register_group_entry,_wasm_jit_mt_register_group_patch,_wasm_jit_mt_prepare_export,_wasm_jit_mt_set_module_broker_enabled,_wasm_jit_mt_broker_validate_module,_wasm_jit_mt_take_thread_start_owner,_wasm_jit_mt_copy_runtime_batch_stats,_wasm_jit_mt_record_group_worker_event,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_malloc,_free
++testMultiThreadedJit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) --emrun -pthread -sPROXY_TO_PTHREAD=1 -sOFFSCREENCANVAS_SUPPORT=0 --pre-js=boxedwine-wasm-jit-module-broker.js --js-library=boxedwine-multithreaded-audio.js -sPTHREAD_POOL_SIZE=$(or $(PTHREAD_POOL_SIZE),32) -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU8$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_mt_register,_wasm_jit_mt_register_group,_wasm_jit_mt_register_group_entry,_wasm_jit_mt_register_group_patch,_wasm_jit_mt_prepare_export,_wasm_jit_mt_set_module_broker_enabled,_wasm_jit_mt_broker_validate_module,_wasm_jit_mt_take_thread_start_owner,_wasm_jit_mt_copy_runtime_batch_stats,_wasm_jit_mt_record_group_worker_event,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_vstbridge_region,_vstbridge_region_bytes,_malloc,_free
+ # Multi-threaded WASM JIT: combines the multiThreaded and jit flag sets.
+ # Within a single emulated process, JIT compilation is serialized via
+ # memory->mutex, and the inline-TLB arrays are mutated under the same
+@@ -94,12 +94,12 @@ multiThreadedJit: export EXTRA_CPP_FLAGS := -DBOXEDWINE_MULTI_THREADED -DBOXEDWI
+ multiThreadedJit: export SHELL_FILE := shell.html
+ # HEAPU8/_malloc/_free: used by boxedwine-shell.js (onRuntimeInitialized) to
+ # copy server-zip cache entries into wasm memory for _wasm_jit_mt_register.
+-multiThreadedJit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) -pthread -sPROXY_TO_PTHREAD=1 -sOFFSCREENCANVAS_SUPPORT=1 -sOFFSCREENCANVASES_TO_PTHREAD=\#canvas --pre-js=boxedwine-wasm-jit-module-broker.js --js-library=boxedwine-multithreaded-audio.js -sPTHREAD_POOL_SIZE=$(or $(PTHREAD_POOL_SIZE),32) -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU8$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_mt_register,_wasm_jit_mt_register_group,_wasm_jit_mt_register_group_entry,_wasm_jit_mt_register_group_patch,_wasm_jit_mt_prepare_export,_wasm_jit_mt_set_module_broker_enabled,_wasm_jit_mt_broker_validate_module,_wasm_jit_mt_take_thread_start_owner,_wasm_jit_mt_copy_runtime_batch_stats,_wasm_jit_mt_record_group_worker_event,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_malloc,_free
++multiThreadedJit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) -pthread -sPROXY_TO_PTHREAD=1 -sOFFSCREENCANVAS_SUPPORT=1 -sOFFSCREENCANVASES_TO_PTHREAD=\#canvas --pre-js=boxedwine-wasm-jit-module-broker.js --js-library=boxedwine-multithreaded-audio.js -sPTHREAD_POOL_SIZE=$(or $(PTHREAD_POOL_SIZE),32) -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU8$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_mt_register,_wasm_jit_mt_register_group,_wasm_jit_mt_register_group_entry,_wasm_jit_mt_register_group_patch,_wasm_jit_mt_prepare_export,_wasm_jit_mt_set_module_broker_enabled,_wasm_jit_mt_broker_validate_module,_wasm_jit_mt_take_thread_start_owner,_wasm_jit_mt_copy_runtime_batch_stats,_wasm_jit_mt_record_group_worker_event,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_vstbridge_region,_vstbridge_region_bytes,_malloc,_free
+ multiThreadedJit: export ASSET_FILES := boxedwine.css boxedwine-shell.js $(ZIP_ASSET_FILES)
+ automationMultiThreadedJit: export BUILD_DIR := Build/AutomationMultiThreadedJit
+ automationMultiThreadedJit: export EXTRA_CPP_FLAGS := -DBOXEDWINE_MULTI_THREADED -DBOXEDWINE_WASM_JIT -DBOXEDWINE_RECORDER $(WASM_JIT_SIMD_FLAG) -pthread
+ automationMultiThreadedJit: export SHELL_FILE := shell.html
+-automationMultiThreadedJit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) --emrun -sEXIT_RUNTIME=1 -pthread -sPROXY_TO_PTHREAD=1 -sOFFSCREENCANVAS_SUPPORT=1 -sOFFSCREENCANVASES_TO_PTHREAD=\#canvas --pre-js=boxedwine-wasm-jit-module-broker.js --js-library=boxedwine-multithreaded-audio.js -sPTHREAD_POOL_SIZE=$(or $(PTHREAD_POOL_SIZE),32) -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU8$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_mt_register,_wasm_jit_mt_register_group,_wasm_jit_mt_register_group_entry,_wasm_jit_mt_register_group_patch,_wasm_jit_mt_prepare_export,_wasm_jit_mt_set_module_broker_enabled,_wasm_jit_mt_broker_validate_module,_wasm_jit_mt_take_thread_start_owner,_wasm_jit_mt_copy_runtime_batch_stats,_wasm_jit_mt_record_group_worker_event,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_malloc,_free
++automationMultiThreadedJit: export EXTRA_LD_FLAGS := $(WASM_JIT_SIMD_FLAG) --emrun -sEXIT_RUNTIME=1 -pthread -sPROXY_TO_PTHREAD=1 -sOFFSCREENCANVAS_SUPPORT=1 -sOFFSCREENCANVASES_TO_PTHREAD=\#canvas --pre-js=boxedwine-wasm-jit-module-broker.js --js-library=boxedwine-multithreaded-audio.js -sPTHREAD_POOL_SIZE=$(or $(PTHREAD_POOL_SIZE),32) -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=3221225472 -sEXPORTED_RUNTIME_METHODS=addFunction,removeFunction,wasmTable,HEAPU8$(WEBGL_COUNTER_JIT_EXPORTS) -sEXPORTED_FUNCTIONS=_main,_wasm_jit_mt_register,_wasm_jit_mt_register_group,_wasm_jit_mt_register_group_entry,_wasm_jit_mt_register_group_patch,_wasm_jit_mt_prepare_export,_wasm_jit_mt_set_module_broker_enabled,_wasm_jit_mt_broker_validate_module,_wasm_jit_mt_take_thread_start_owner,_wasm_jit_mt_copy_runtime_batch_stats,_wasm_jit_mt_record_group_worker_event,_wasm_jit_set_persistence_active,_wasm_jit_set_record_active,_vstbridge_region,_vstbridge_region_bytes,_malloc,_free
+ automationMultiThreadedJit: export ASSET_FILES := boxedwine.css boxedwine-shell.js $(ZIP_ASSET_FILES)
+ 
+ cpus := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 1)
+diff --git a/source/kernel/devs/devvstbridge.cpp b/source/kernel/devs/devvstbridge.cpp
+new file mode 100644
+index 00000000..3f676601
+--- /dev/null
++++ b/source/kernel/devs/devvstbridge.cpp
+@@ -0,0 +1,434 @@
++/*
++ *  Copyright (C) 2026  The BoxedWine Team
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program; if not, write to the Free Software
++ *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ */
++
++// /dev/vstbridge: audio and control channels between a guest plugin host
++// (vsthost.exe --bridge under Wine) and the browser page that embeds the
++// emulator, through one region of WebAssembly memory. The page and its
++// AudioWorklet read and write the region with Atomics; the guest only sees the
++// fixed-size records of vstbridge_abi.h through read() and write(). In the
++// multithreaded build a guest read parks the emulator thread on a futex in the
++// region, so the AudioWorklet's Atomics.notify wakes it without the browser
++// main thread. The layout and the protocol are documented in vstbridge_abi.h.
++
++#include "boxedwine.h"
++
++#include "../../io/fsvirtualopennode.h"
++#include "vstbridge_abi.h"
++#include "devvstbridge.h"
++
++#include <algorithm>
++#include <chrono>
++#include <cstring>
++#include <mutex>
++#include <thread>
++#include <vector>
++
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#include <emscripten/threading.h>
++#define VSTB_EXPORT extern "C" EMSCRIPTEN_KEEPALIVE
++#else
++#define VSTB_EXPORT extern "C"
++#endif
++
++alignas(4096) static U8 vstbRegion[VSTB_REGION_BYTES];
++
++namespace {
++
++struct RegionInit {
++    RegionInit() {
++        auto* h = reinterpret_cast<vstb_region_header*>(vstbRegion);
++        h->magic = VSTB_MAGIC;
++        h->version = VSTB_VERSION;
++        h->regionBytes = VSTB_REGION_BYTES;
++        h->maxChannels = VSTB_MAX_CHANNELS;
++        h->channelsOffset = VSTB_CHANNELS_OFFSET;
++        h->channelBytes = VSTB_CHANNEL_BYTES;
++        h->ringFrames = VSTB_RING_FRAMES;
++        h->slots = VSTB_SLOTS;
++    }
++} regionInit;
++
++vstb_region_header* header() { return reinterpret_cast<vstb_region_header*>(vstbRegion); }
++vstb_ctrl_header* ctrl() { return reinterpret_cast<vstb_ctrl_header*>(vstbRegion + VSTB_CTRL_OFFSET); }
++U8* channelBase(U32 channel) { return vstbRegion + VSTB_CHANNELS_OFFSET + (channel - 1) * VSTB_CHANNEL_BYTES; }
++vstb_channel_ctl* channelCtl(U32 channel) { return reinterpret_cast<vstb_channel_ctl*>(channelBase(channel)); }
++float* ring(U32 channel, U32 offset, U32 index) {
++    return reinterpret_cast<float*>(channelBase(channel) + offset) + index * VSTB_RING_FRAMES;
++}
++
++S32 load(S32* p) { return __atomic_load_n(p, __ATOMIC_SEQ_CST); }
++void store(S32* p, S32 v) { __atomic_store_n(p, v, __ATOMIC_SEQ_CST); }
++S32 add(S32* p, S32 v) { return __atomic_add_fetch(p, v, __ATOMIC_SEQ_CST); }
++
++void wake(S32* p) {
++#if defined(__EMSCRIPTEN__) && defined(BOXEDWINE_MULTI_THREADED)
++    emscripten_futex_wake(p, 0x7fffffff);
++#endif
++}
++
++#ifdef BOXEDWINE_MULTI_THREADED
++// Parks the calling thread until *p != expected, a wake, or the timeout. In the
++// browser this is Atomics.wait on the shared memory, so an Atomics.notify from
++// the AudioWorklet wakes it directly. Native builds poll.
++void waitWhileEqual(S32* p, S32 expected, double timeoutMs) {
++#ifdef __EMSCRIPTEN__
++    emscripten_futex_wait(p, (U32)expected, timeoutMs);
++#else
++    auto until = std::chrono::steady_clock::now() + std::chrono::microseconds((S64)(timeoutMs * 1000));
++    while (load(p) == expected && std::chrono::steady_clock::now() < until) {
++        std::this_thread::sleep_for(std::chrono::microseconds(50));
++    }
++#endif
++}
++#endif
++
++double nowMs() {
++#ifdef __EMSCRIPTEN__
++    return emscripten_get_now(); // performance.timeOrigin + now() in pthread builds
++#else
++    return (double)KSystem::getMicroCounter() / 1000.0;
++#endif
++}
++
++void histogram(S32* buckets, double us) {
++    U32 bucket = 0;
++    for (U32 v = us > 0 ? (U32)us : 0; v > 1 && bucket < VSTB_HIST_BUCKETS - 1; v >>= 1) {
++        bucket++;
++    }
++    add(&buckets[bucket], 1);
++}
++
++class DevVstBridge : public FsVirtualOpenNode {
++public:
++    DevVstBridge(const std::shared_ptr<FsNode>& node, U32 flags) : FsVirtualOpenNode(node, flags) {}
++    ~DevVstBridge() override { detach(); }
++
++    U32 readNative(U8* buffer, U32 len) override;
++    U32 writeNative(U8* buffer, U32 len) override;
++    void close() override { detach(); }
++
++private:
++    // Blocks (multithreaded build) until the next record is pending.
++    // Returns 0 when a record is pending, else a negative kernel error, or 1
++    // when nothing is pending and this build can't block.
++    U32 waitControl();
++    U32 waitAudio();
++    U32 checkThread();
++    void attach(const vstb_attach& a);
++    void detach();
++    bool consumeWrites();
++
++    S32 channel = -1;
++    std::vector<U8> pending;
++    U32 pendingPos = 0;
++    std::vector<U8> staged;
++    std::mutex writeMutex;
++    // control channel
++    S32 controlSeen = 0;
++    // audio channel
++    U32 blockFrames = 0;
++    U32 inPorts = 0;
++    U32 outPorts = 0;
++    U32 window = 0;
++    S32 consumed = 0;
++    S32 kicksSeen = 0;
++    double deliveredMs = 0;
++};
++
++U32 DevVstBridge::checkThread() {
++#ifdef BOXEDWINE_MULTI_THREADED
++    KThread* thread = KThread::currentThread();
++    if (thread) {
++        if (thread->terminating) {
++            return -K_EINTR;
++        }
++        if (thread->startSignal) {
++            thread->startSignal = false;
++            return -K_CONTINUE;
++        }
++    }
++#endif
++    return 0;
++}
++
++void DevVstBridge::attach(const vstb_attach& a) {
++    if (a.magic != VSTB_ATTACH_MAGIC || a.channel > VSTB_MAX_CHANNELS) {
++        kwarn("vstbridge: bad attach record");
++        return;
++    }
++    channel = (S32)a.channel;
++    if (channel == 0) {
++        controlSeen = load(&ctrl()->responseSeq);
++        add(&header()->bridgeAttaches, 1);
++        store(&header()->bridgeState, VSTB_BRIDGE_SERVING);
++        staged.reserve(VSTB_CTRL_BYTES);
++        return;
++    }
++    vstb_channel_ctl* c = channelCtl(channel);
++    blockFrames = std::clamp<U32>(a.blockFrames, VSTB_MIN_BLOCK_FRAMES, VSTB_MAX_BLOCK_FRAMES);
++    inPorts = std::min<U32>(a.inPorts, VSTB_MAX_IN_PORTS);
++    outPorts = std::min<U32>(a.outPorts, VSTB_MAX_OUT_PORTS);
++    window = std::min<U32>(VSTB_SLOTS, VSTB_RING_FRAMES / blockFrames) - 1;
++    pending.reserve(VSTB_REQUEST_BYTES + inPorts * 2 * blockFrames * sizeof(float));
++    staged.reserve(VSTB_RESPONSE_HEADER_BYTES + outPorts * 2 * blockFrames * sizeof(float));
++    store(&c->requestSeq, 0);
++    store(&c->responseSeq, 0);
++    store(&c->underruns, 0);
++    store(&c->skipped, 0);
++    store(&c->maxProcessUs, 0);
++    store(&c->fault, 0);
++    for (U32 i = 0; i < VSTB_HIST_BUCKETS; i++) {
++        store(&c->wakeHist[i], 0);
++        store(&c->turnHist[i], 0);
++    }
++    store(&c->sampleRate, (S32)a.sampleRate);
++    store(&c->blockFrames, (S32)blockFrames);
++    store(&c->inPorts, (S32)inPorts);
++    store(&c->outPorts, (S32)outPorts);
++    store(&c->pluginLatency, (S32)a.pluginLatency);
++    consumed = 0;
++    kicksSeen = load(&c->kickSeq);
++    add(&c->attached, 1);
++    add(&c->generation, 1);
++    store(&c->state, VSTB_STATE_READY);
++    wake(&c->state);
++}
++
++void DevVstBridge::detach() {
++    if (channel == 0) {
++        store(&header()->bridgeState, VSTB_BRIDGE_NONE);
++    } else if (channel > 0) {
++        vstb_channel_ctl* c = channelCtl(channel);
++        if (add(&c->attached, -1) <= 0) {
++            store(&c->state, VSTB_STATE_CLOSED);
++            wake(&c->state);
++        }
++    }
++    channel = -1;
++}
++
++U32 DevVstBridge::waitControl() {
++    vstb_ctrl_header* h = ctrl();
++    for (;;) {
++        S32 seq = load(&h->requestSeq);
++        if (seq != controlSeen) {
++            const vstb_msg* msg = reinterpret_cast<const vstb_msg*>(vstbRegion + VSTB_CTRL_REQUEST_OFFSET);
++            U32 length = std::min<U32>(msg->length, VSTB_CTRL_BYTES - sizeof(vstb_msg));
++            const U8* src = vstbRegion + VSTB_CTRL_REQUEST_OFFSET;
++            pending.assign(src, src + sizeof(vstb_msg) + length);
++            pendingPos = 0;
++            controlSeen = seq;
++            return 0;
++        }
++#ifdef BOXEDWINE_MULTI_THREADED
++        store(&h->guestWaiting, 1);
++        waitWhileEqual(&h->requestSeq, seq, 100.0);
++        store(&h->guestWaiting, 0);
++        U32 result = checkThread();
++        if (result) {
++            return result;
++        }
++#else
++        return 1;
++#endif
++    }
++}
++
++U32 DevVstBridge::waitAudio() {
++    vstb_channel_ctl* c = channelCtl(channel);
++    for (;;) {
++        S32 requested = load(&c->requestSeq);
++        if (requested > consumed) {
++            if ((U32)(requested - consumed) > window) {
++                // The host is more than the ring ahead: those requests (or their
++                // inputs) may already be overwritten. Skip to the oldest safe one.
++                add(&c->skipped, requested - (S32)window - consumed);
++                consumed = requested - (S32)window;
++            }
++            const U32 k = (U32)consumed;
++            const U8* slot = channelBase(channel) + VSTB_SLOTS_OFFSET + (k % VSTB_SLOTS) * VSTB_REQUEST_BYTES;
++            const U32 inBytes = inPorts * 2 * blockFrames * sizeof(float);
++            pending.resize(VSTB_REQUEST_BYTES + inBytes);
++            memcpy(pending.data(), slot, VSTB_REQUEST_BYTES);
++            const U32 frame = (k * blockFrames) % VSTB_RING_FRAMES;
++            for (U32 i = 0; i < inPorts * 2; i++) {
++                memcpy(pending.data() + VSTB_REQUEST_BYTES + i * blockFrames * sizeof(float),
++                    ring(channel, VSTB_IN_RINGS_OFFSET, i) + frame, blockFrames * sizeof(float));
++            }
++            if ((U32)(load(&c->requestSeq) - (S32)k) > window) {
++                continue; // overwritten while copying
++            }
++            consumed = (S32)k + 1;
++            pendingPos = 0;
++            deliveredMs = nowMs();
++            const vstb_request* request = reinterpret_cast<const vstb_request*>(pending.data());
++            if (request->hostTimeMs > 0) {
++                histogram(c->wakeHist, (deliveredMs - request->hostTimeMs) * 1000.0);
++            }
++            return 0;
++        }
++        S32 kicks = load(&c->kickSeq);
++        if (kicks != kicksSeen) {
++            kicksSeen = kicks;
++            pending.assign(VSTB_REQUEST_BYTES, 0);
++            vstb_request* request = reinterpret_cast<vstb_request*>(pending.data());
++            request->blockIndex = (U32)consumed;
++            request->flags = VSTB_REQ_KICK;
++            pendingPos = 0;
++            return 0;
++        }
++#ifdef BOXEDWINE_MULTI_THREADED
++        S32 bell = load(&c->doorbell);
++        if (load(&c->requestSeq) > consumed || load(&c->kickSeq) != kicksSeen) {
++            continue;
++        }
++        waitWhileEqual(&c->doorbell, bell, 100.0);
++        U32 result = checkThread();
++        if (result) {
++            return result;
++        }
++#else
++        return 1;
++#endif
++    }
++}
++
++U32 DevVstBridge::readNative(U8* buffer, U32 len) {
++    if (channel < 0) {
++        return -K_EINVAL;
++    }
++    if (pendingPos >= pending.size()) {
++        U32 result = channel == 0 ? waitControl() : waitAudio();
++        if (result == 1) {
++            return 0; // single-threaded build: nothing yet, the guest polls
++        }
++        if (result) {
++            return result;
++        }
++    }
++    U32 n = std::min<U32>(len, (U32)pending.size() - pendingPos);
++    memcpy(buffer, pending.data() + pendingPos, n);
++    pendingPos += n;
++    return n;
++}
++
++// Applies every complete record in `staged`; returns false on a protocol error.
++bool DevVstBridge::consumeWrites() {
++    U32 used = 0;
++    for (;;) {
++        const U32 available = (U32)staged.size() - used;
++        const U8* data = staged.data() + used;
++        if (channel < 0) {
++            if (available < sizeof(vstb_attach)) {
++                break;
++            }
++            vstb_attach a;
++            memcpy(&a, data, sizeof a);
++            used += sizeof a;
++            attach(a);
++            if (channel < 0) {
++                return false;
++            }
++        } else if (channel == 0) {
++            if (available < sizeof(vstb_msg)) {
++                break;
++            }
++            vstb_msg msg;
++            memcpy(&msg, data, sizeof msg);
++            const U32 length = std::min<U32>(msg.length, VSTB_CTRL_BYTES - sizeof(vstb_msg));
++            if (available < sizeof(vstb_msg) + length) {
++                break;
++            }
++            if (msg.op == VSTB_OP_KICK) {
++                if (msg.channel >= 1 && msg.channel <= VSTB_MAX_CHANNELS) {
++                    vstb_channel_ctl* c = channelCtl(msg.channel);
++                    add(&c->kickSeq, 1);
++                    add(&c->doorbell, 1);
++                    wake(&c->doorbell);
++                }
++            } else {
++                U8* dst = vstbRegion + VSTB_CTRL_RESPONSE_OFFSET;
++                memcpy(dst, data, sizeof(vstb_msg) + length);
++                reinterpret_cast<vstb_msg*>(dst)->length = length;
++                store(&ctrl()->responseSeq, (S32)msg.seq);
++                wake(&ctrl()->responseSeq);
++            }
++            used += sizeof(vstb_msg) + length;
++        } else {
++            const U32 outBytes = outPorts * 2 * blockFrames * sizeof(float);
++            if (available < VSTB_RESPONSE_HEADER_BYTES + outBytes) {
++                break;
++            }
++            vstb_response response;
++            memcpy(&response, data, sizeof response);
++            vstb_channel_ctl* c = channelCtl(channel);
++            const U32 k = response.blockIndex;
++            const U32 frame = (k * blockFrames) % VSTB_RING_FRAMES;
++            for (U32 i = 0; i < outPorts * 2; i++) {
++                memcpy(ring(channel, VSTB_OUT_RINGS_OFFSET, i) + frame,
++                    data + VSTB_RESPONSE_HEADER_BYTES + i * blockFrames * sizeof(float), blockFrames * sizeof(float));
++            }
++            store(&c->processUs[k % VSTB_SLOTS], (S32)response.processUs);
++            store(&c->lastProcessUs, (S32)response.processUs);
++            if ((S32)response.processUs > load(&c->maxProcessUs)) {
++                store(&c->maxProcessUs, (S32)response.processUs);
++            }
++            histogram(c->turnHist, (nowMs() - deliveredMs) * 1000.0);
++            if ((S32)(k + 1) > load(&c->responseSeq)) {
++                store(&c->responseSeq, (S32)(k + 1));
++            }
++            wake(&c->responseSeq);
++            used += VSTB_RESPONSE_HEADER_BYTES + outBytes;
++        }
++    }
++    if (used == staged.size()) {
++        staged.clear();
++    } else if (used) {
++        staged.erase(staged.begin(), staged.begin() + used);
++    }
++    return true;
++}
++
++U32 DevVstBridge::writeNative(U8* buffer, U32 len) {
++    std::lock_guard<std::mutex> lock(writeMutex);
++    staged.insert(staged.end(), buffer, buffer + len);
++    if (!consumeWrites()) {
++        staged.clear();
++        return -K_EINVAL;
++    }
++    return len;
++}
++
++} // namespace
++
++U8* vstbridgeRegion() {
++    return vstbRegion;
++}
++
++VSTB_EXPORT U32 vstbridge_region() {
++    return (U32)(uintptr_t)vstbRegion;
++}
++
++VSTB_EXPORT U32 vstbridge_region_bytes() {
++    return VSTB_REGION_BYTES;
++}
++
++FsOpenNode* openDevVstBridge(const std::shared_ptr<FsNode>& node, U32 flags, U32 data) {
++    return new DevVstBridge(node, flags);
++}
+diff --git a/source/kernel/devs/vstbridge_abi.h b/source/kernel/devs/vstbridge_abi.h
+new file mode 100644
+index 00000000..cd732847
+--- /dev/null
++++ b/source/kernel/devs/vstbridge_abi.h
+@@ -0,0 +1,257 @@
++#pragma once
++
++/*
++ * vstbridge: the shared-memory layout of Boxedwine's /dev/vstbridge device.
++ *
++ * One region of WebAssembly memory (a SharedArrayBuffer in the browser) is
++ * shared by three parties:
++ *   - the host page / AudioWorklet (JavaScript, through Atomics on the region),
++ *   - the device in Boxedwine (C++, compiled to WebAssembly), and
++ *   - vsthost.exe --bridge under Wine (i686 Windows code), which only ever sees
++ *     the records below through ReadFile/WriteFile on Z:\dev\vstbridge.
++ *
++ * This header is the single source of truth. The same file is compiled by
++ * Emscripten (Boxedwine patch 0003 carries a copy), MinGW (vsthost) and the
++ * native layout test (tests/abi_layout.c), which writes vstbridge_abi.json;
++ * the JavaScript and TypeScript twins are tested against that JSON.
++ *
++ * Everything is little-endian. Doubles are placed at 8-byte offsets so that
++ * wasm32, MinGW i686 (8-byte double alignment) and System V i386 (4-byte)
++ * agree; the static asserts at the end check the offsets on every compiler.
++ *
++ * Region (offsets from the region base):
++ *   0                  vstb_region_header (256 bytes)
++ *   VSTB_CTRL_OFFSET   vstb_ctrl_header (256 bytes), then the request message
++ *                      and the response message (VSTB_CTRL_BYTES each)
++ *   VSTB_CHANNELS_OFFSET + (n - 1) * VSTB_CHANNEL_BYTES
++ *                      audio channel n (1..VSTB_MAX_CHANNELS):
++ *                        vstb_channel_ctl (VSTB_CHANNEL_CTL_BYTES, padded to 4096)
++ *                        request slots    (VSTB_SLOTS x VSTB_REQUEST_BYTES)
++ *                        input rings      (VSTB_MAX_IN_PORTS x 2 x VSTB_RING_FRAMES floats)
++ *                        output rings     (VSTB_MAX_OUT_PORTS x 2 x VSTB_RING_FRAMES floats)
++ *
++ * Audio protocol (one channel = one plugin instance):
++ *   host:  for block k (B = blockFrames frames), write the request into slot
++ *          k % VSTB_SLOTS and the inputs into the input rings at frame
++ *          (k * B) % VSTB_RING_FRAMES (port p, channel c: ring 2p + c), then
++ *          store requestSeq = k + 1, add 1 to doorbell and Atomics.notify it.
++ *   guest: ReadFile returns vstb_request followed by the inputs (planar
++ *          float32, inPorts x 2 x B). WriteFile takes vstb_response followed
++ *          by the outputs (outPorts x 2 x B); the device copies them into the
++ *          output rings at frame (k * B) % VSTB_RING_FRAMES and stores
++ *          responseSeq = k + 1.
++ *   host:  plays output frame t - L at time t, once responseSeq * B >= t - L + n.
++ *          Otherwise it plays silence and counts an underrun.
++ * A read that is woken by kickSeq instead returns only a vstb_request with
++ * frames = 0 and VSTB_REQ_KICK set, so the instance thread can run a command.
++ * Guest buffers must be page-aligned and audio reads must ask for exactly
++ * VSTB_REQUEST_BYTES + input bytes (Boxedwine copies page by page).
++ */
++
++#include <stddef.h>
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#define VSTB_MAGIC 0x42545356u /* 'VSTB' */
++#define VSTB_VERSION 1u
++#define VSTB_ATTACH_MAGIC 0x48435441u /* 'ATCH' */
++
++#define VSTB_MAX_CHANNELS 8u     /* audio channels 1..8; 0 is the control channel */
++#define VSTB_MAX_IN_PORTS 4u     /* stereo input ports per channel */
++#define VSTB_MAX_OUT_PORTS 4u    /* stereo output ports per channel */
++#define VSTB_RING_FRAMES 8192u   /* frames per audio ring (power of two) */
++#define VSTB_SLOTS 64u           /* request slots per channel (power of two) */
++#define VSTB_MAX_EVENTS 120u     /* events per request */
++#define VSTB_MIN_BLOCK_FRAMES 32u
++#define VSTB_MAX_BLOCK_FRAMES 1024u
++#define VSTB_CTRL_BYTES (2u << 20) /* capacity of each control message, header included */
++
++#define VSTB_REGION_HEADER_BYTES 256u
++#define VSTB_CTRL_OFFSET 4096u
++#define VSTB_CTRL_HEADER_BYTES 256u
++#define VSTB_CTRL_REQUEST_OFFSET (VSTB_CTRL_OFFSET + VSTB_CTRL_HEADER_BYTES)
++#define VSTB_CTRL_RESPONSE_OFFSET (VSTB_CTRL_REQUEST_OFFSET + VSTB_CTRL_BYTES)
++#define VSTB_CHANNELS_OFFSET (VSTB_CTRL_RESPONSE_OFFSET + VSTB_CTRL_BYTES + 3840u) /* 4096-aligned */
++#define VSTB_CHANNEL_CTL_BYTES 1024u
++#define VSTB_REQUEST_BYTES 2048u
++#define VSTB_RESPONSE_HEADER_BYTES 32u
++#define VSTB_SLOTS_OFFSET 4096u /* within a channel; vstb_channel_ctl comes first */
++#define VSTB_IN_RINGS_OFFSET (VSTB_SLOTS_OFFSET + VSTB_SLOTS * VSTB_REQUEST_BYTES)
++#define VSTB_OUT_RINGS_OFFSET (VSTB_IN_RINGS_OFFSET + VSTB_MAX_IN_PORTS * 2u * VSTB_RING_FRAMES * 4u)
++#define VSTB_CHANNEL_BYTES (VSTB_OUT_RINGS_OFFSET + VSTB_MAX_OUT_PORTS * 2u * VSTB_RING_FRAMES * 4u)
++#define VSTB_REGION_BYTES (VSTB_CHANNELS_OFFSET + VSTB_MAX_CHANNELS * VSTB_CHANNEL_BYTES)
++
++/* vstb_channel_ctl.state */
++enum {
++    VSTB_STATE_FREE = 0,
++    VSTB_STATE_LOADING = 1, /* LOAD sent, plugin not attached yet */
++    VSTB_STATE_READY = 2,   /* instance thread attached; requests are served */
++    VSTB_STATE_FAULT = 3,
++    VSTB_STATE_CLOSED = 4,
++};
++
++/* vstb_region_header.bridgeState */
++enum { VSTB_BRIDGE_NONE = 0, VSTB_BRIDGE_SERVING = 1 };
++
++/* vstb_event.type */
++enum {
++    VSTB_EV_MIDI = 1,    /* midi[0..2]: a short MIDI message */
++    VSTB_EV_PARAM = 2,   /* index: parameter, value: normalized 0..1 */
++    VSTB_EV_PROGRAM = 3, /* index: program number */
++};
++
++/* vstb_request.flags */
++enum {
++    VSTB_REQ_PLAYING = 1u << 0, /* transport playing */
++    VSTB_REQ_KICK = 1u << 1,    /* not audio: run the instance's pending command */
++};
++
++/* vstb_msg.op: control requests (host -> guest) */
++enum {
++    VSTB_OP_PING = 1,      /* -> "pong" */
++    VSTB_OP_LOAD = 2,      /* text "rate=<hz> block=<frames> warmup=<0|1> path=<windows path>" -> describe JSON */
++    VSTB_OP_DESCRIBE = 3,  /* -> describe JSON */
++    VSTB_OP_GET_STATE = 4, /* -> vstb state blob (see vsthost) */
++    VSTB_OP_SET_STATE = 5, /* vstb state blob -> "" */
++    VSTB_OP_UNLOAD = 6,    /* -> "" */
++    VSTB_OP_KICK = 100,    /* guest only: written on the control handle, wakes channel's instance thread */
++};
++
++/* vstb_msg.status */
++enum { VSTB_STATUS_OK = 0, VSTB_STATUS_ERROR = 1 };
++
++typedef struct vstb_region_header {
++    uint32_t magic;          /* VSTB_MAGIC */
++    uint32_t version;        /* VSTB_VERSION */
++    uint32_t regionBytes;    /* VSTB_REGION_BYTES */
++    uint32_t maxChannels;    /* VSTB_MAX_CHANNELS */
++    uint32_t channelsOffset; /* VSTB_CHANNELS_OFFSET */
++    uint32_t channelBytes;   /* VSTB_CHANNEL_BYTES */
++    uint32_t ringFrames;     /* VSTB_RING_FRAMES */
++    uint32_t slots;          /* VSTB_SLOTS */
++    int32_t bridgeState;     /* VSTB_BRIDGE_*: set when vsthost attaches the control channel */
++    int32_t bridgeAttaches;  /* control attaches so far */
++    uint32_t reserved[54];
++} vstb_region_header;
++
++typedef struct vstb_ctrl_header {
++    int32_t requestSeq;   /* host: bumped (and notified) after writing the request message */
++    int32_t responseSeq;  /* guest: set to the answered request's seq (and notified) */
++    int32_t guestWaiting; /* 1 while the control thread waits for a request */
++    int32_t reserved[61];
++} vstb_ctrl_header;
++
++/* Header of a control message; `length` payload bytes follow. */
++typedef struct vstb_msg {
++    uint32_t seq;     /* request: ctrl requestSeq value; response: same */
++    uint32_t op;      /* VSTB_OP_* */
++    uint32_t channel; /* audio channel the request concerns, 0 if none */
++    uint32_t length;  /* payload bytes */
++    int32_t status;   /* response: VSTB_STATUS_* */
++    uint32_t reserved[3];
++} vstb_msg;
++
++/* The first write on a fresh handle binds it to a channel. */
++typedef struct vstb_attach {
++    uint32_t magic;   /* VSTB_ATTACH_MAGIC */
++    uint32_t channel; /* 0: control; 1..VSTB_MAX_CHANNELS: audio */
++    /* audio channels: the instance's configuration, published in vstb_channel_ctl */
++    uint32_t sampleRate;
++    uint32_t blockFrames;
++    uint32_t inPorts;
++    uint32_t outPorts;
++    uint32_t pluginLatency;
++    uint32_t reserved;
++} vstb_attach;
++
++#define VSTB_HIST_BUCKETS 16u /* bucket i counts values in [2^i, 2^(i+1)) microseconds; 0 in bucket 0 */
++
++/* Per-channel control words. Int32 words, read and written with atomics. */
++typedef struct vstb_channel_ctl {
++    int32_t state;         /* VSTB_STATE_* */
++    int32_t doorbell;      /* futex word the instance thread waits on */
++    int32_t requestSeq;    /* requests published by the host */
++    int32_t responseSeq;   /* responses written by the guest */
++    int32_t kickSeq;       /* commands for the instance thread (doorbell rung too) */
++    int32_t generation;    /* bumped at every attach: a new instance, sequences restart at 0 */
++    int32_t sampleRate;    /* from vstb_attach */
++    int32_t blockFrames;
++    int32_t inPorts;
++    int32_t outPorts;
++    int32_t pluginLatency;
++    int32_t underruns;     /* host: blocks played as silence */
++    int32_t skipped;       /* guest: requests skipped because it fell VSTB_SLOTS behind */
++    int32_t lastProcessUs; /* guest: plugin processing time of the last block */
++    int32_t maxProcessUs;
++    int32_t fault;
++    int32_t attached;      /* handles bound to this channel */
++    int32_t reserved0[15];
++    int32_t processUs[VSTB_SLOTS];          /* guest: processing time of block k at k % VSTB_SLOTS */
++    int32_t wakeHist[VSTB_HIST_BUCKETS];    /* device: publish -> guest wake-up (requests with hostTimeMs) */
++    int32_t turnHist[VSTB_HIST_BUCKETS];    /* device: request delivered -> response written */
++    int32_t reserved1[128];
++} vstb_channel_ctl;
++
++typedef struct vstb_event {
++    uint32_t offset; /* frame within the block */
++    uint16_t type;   /* VSTB_EV_* */
++    uint16_t index;  /* parameter index or program */
++    float value;     /* parameter value 0..1 */
++    uint8_t midi[4]; /* VSTB_EV_MIDI: status, data1, data2, 0 */
++} vstb_event;
++
++typedef struct vstb_request {
++    uint32_t blockIndex;    /* k */
++    uint32_t frames;        /* B, or 0 for a kick */
++    uint32_t connectedMask; /* bit p: input port p is connected (else silence) */
++    uint32_t flags;         /* VSTB_REQ_* */
++    double tempo;           /* BPM */
++    double ppqPos;          /* quarter notes at the first frame */
++    double samplePos;       /* song frames at the first frame */
++    double hostTimeMs;      /* publish time (performance.timeOrigin + now()), 0 if unknown */
++    uint32_t eventCount;
++    uint32_t droppedEvents; /* events that did not fit */
++    uint32_t reserved[2];
++    vstb_event events[VSTB_MAX_EVENTS];
++    uint8_t pad[64];
++} vstb_request;
++
++typedef struct vstb_response {
++    uint32_t blockIndex;
++    uint32_t frames;
++    uint32_t processUs; /* plugin processing time */
++    uint32_t status;
++    uint32_t reserved[4];
++} vstb_response;
++
++#if defined(__cplusplus)
++#define VSTB_STATIC_ASSERT(cond, msg) static_assert(cond, msg)
++#else
++#define VSTB_STATIC_ASSERT(cond, msg) _Static_assert(cond, msg)
++#endif
++
++VSTB_STATIC_ASSERT(sizeof(vstb_region_header) == VSTB_REGION_HEADER_BYTES, "region header size");
++VSTB_STATIC_ASSERT(sizeof(vstb_ctrl_header) == VSTB_CTRL_HEADER_BYTES, "ctrl header size");
++VSTB_STATIC_ASSERT(sizeof(vstb_msg) == 32, "msg size");
++VSTB_STATIC_ASSERT(sizeof(vstb_attach) == 32, "attach size");
++VSTB_STATIC_ASSERT(sizeof(vstb_channel_ctl) == VSTB_CHANNEL_CTL_BYTES, "channel ctl size");
++VSTB_STATIC_ASSERT(sizeof(vstb_event) == 16, "event size");
++VSTB_STATIC_ASSERT(sizeof(vstb_request) == VSTB_REQUEST_BYTES, "request size");
++VSTB_STATIC_ASSERT(sizeof(vstb_response) == VSTB_RESPONSE_HEADER_BYTES, "response size");
++VSTB_STATIC_ASSERT(offsetof(vstb_request, tempo) == 16, "request.tempo");
++VSTB_STATIC_ASSERT(offsetof(vstb_request, hostTimeMs) == 40, "request.hostTimeMs");
++VSTB_STATIC_ASSERT(offsetof(vstb_request, eventCount) == 48, "request.eventCount");
++VSTB_STATIC_ASSERT(offsetof(vstb_request, events) == 64, "request.events");
++VSTB_STATIC_ASSERT(offsetof(vstb_channel_ctl, processUs) == 128, "ctl.processUs");
++VSTB_STATIC_ASSERT(VSTB_CHANNEL_CTL_BYTES <= VSTB_SLOTS_OFFSET, "ctl fits before the slots");
++VSTB_STATIC_ASSERT(VSTB_CHANNELS_OFFSET % 4096u == 0, "channels 4096-aligned");
++VSTB_STATIC_ASSERT(VSTB_CHANNEL_BYTES % 4096u == 0, "channel stride 4096-aligned");
++VSTB_STATIC_ASSERT((VSTB_RING_FRAMES & (VSTB_RING_FRAMES - 1u)) == 0, "ring frames power of two");
++VSTB_STATIC_ASSERT((VSTB_SLOTS & (VSTB_SLOTS - 1u)) == 0, "slots power of two");
++
++#ifdef __cplusplus
++}
++#endif
+diff --git a/source/sdl/startupArgs.cpp b/source/sdl/startupArgs.cpp
+index 6e0493b0..5fed1f46 100644
+--- a/source/sdl/startupArgs.cpp
++++ b/source/sdl/startupArgs.cpp
+@@ -35,6 +35,7 @@
+ #include "uptime.h"
+ #include "devmixer.h"
+ #include "devsequencer.h"
++#include "devvstbridge.h"
+ #include "devfb.h"
+ #include "mainloop.h"
+ #include "../io/fsfilenode.h"
+@@ -197,6 +198,7 @@ void StartUpArgs::buildVirtualFileSystem() {
+ 	Fs::addVirtualFile(B("/dev/dsp"), openDevDsp, K__S_IWRITE | K__S_IREAD | K__S_IFCHR, k_mdev(14, 3), devNode);
+ 	Fs::addVirtualFile(B("/dev/mixer"), openDevMixer, K__S_IWRITE | K__S_IREAD | K__S_IFCHR, k_mdev(14, 0), devNode);
+     Fs::addVirtualFile(B("/dev/sequencer"), openDevSequencer, K__S_IWRITE | K__S_IREAD | K__S_IFCHR, k_mdev(14, 1), devNode);    
++    Fs::addVirtualFile(B("/dev/vstbridge"), openDevVstBridge, K__S_IWRITE | K__S_IREAD | K__S_IFCHR, k_mdev(10, 240), devNode);
+ 
+     Fs::addVirtualFile(B("/etc/hostname"), openHostname, K__S_IREAD, k_mdev(0, 0), etcNode);
+     Fs::addVirtualFile(B("/etc/hosts"), openHosts, K__S_IREAD, k_mdev(0, 0), etcNode);
+diff --git a/source/test/devs/testVstBridge.cpp b/source/test/devs/testVstBridge.cpp
+new file mode 100644
+index 00000000..f43688d5
+--- /dev/null
++++ b/source/test/devs/testVstBridge.cpp
+@@ -0,0 +1,255 @@
++/*
++ *  Copyright (C) 2026  The BoxedWine Team
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ */
++
++#include "boxedwine.h"
++
++#ifdef __TEST
++
++#include "testVstBridge.h"
++#include "devvstbridge.h"
++#include "../../kernel/devs/vstbridge_abi.h"
++#include "../cpu/testCPU.h"
++#include "kstat.h"
++
++#include <cstring>
++#include <filesystem>
++#include <thread>
++#include <vector>
++
++// The host side of /dev/vstbridge is JavaScript in the browser; here the test
++// plays it, writing the region directly, while the device is driven through
++// readNative/writeNative as the guest's read()/write() would.
++namespace {
++
++constexpr U32 kBlock = 256;
++constexpr U32 kChannel = 3;
++
++U8* region() { return vstbridgeRegion(); }
++vstb_ctrl_header* ctrl() { return reinterpret_cast<vstb_ctrl_header*>(region() + VSTB_CTRL_OFFSET); }
++U8* channelBase(U32 channel) { return region() + VSTB_CHANNELS_OFFSET + (channel - 1) * VSTB_CHANNEL_BYTES; }
++vstb_channel_ctl* ctl(U32 channel) { return reinterpret_cast<vstb_channel_ctl*>(channelBase(channel)); }
++float* ring(U32 channel, U32 offset, U32 index) {
++    return reinterpret_cast<float*>(channelBase(channel) + offset) + index * VSTB_RING_FRAMES;
++}
++S32 load(S32* p) { return __atomic_load_n(p, __ATOMIC_SEQ_CST); }
++
++void expectU32(const char* label, U32 actual, U32 expected) {
++    if (actual != expected) {
++        testFail("%s expected %u, got %u", label, expected, actual);
++    }
++}
++
++void expectFloat(const char* label, float actual, float expected) {
++    if (actual != expected) {
++        testFail("%s expected %f, got %f", label, (double)expected, (double)actual);
++    }
++}
++
++// Host: publishes block k with one note event and input samples k * 1000 + frame.
++void publish(U32 k) {
++    U8* slot = channelBase(kChannel) + VSTB_SLOTS_OFFSET + (k % VSTB_SLOTS) * VSTB_REQUEST_BYTES;
++    memset(slot, 0, VSTB_REQUEST_BYTES);
++    vstb_request* r = reinterpret_cast<vstb_request*>(slot);
++    r->blockIndex = k;
++    r->frames = kBlock;
++    r->eventCount = 1;
++    r->events[0].offset = k % kBlock;
++    r->events[0].type = VSTB_EV_MIDI;
++    r->events[0].midi[0] = 0x90;
++    r->events[0].midi[1] = (U8)(k & 0x7f);
++    const U32 frame = (k * kBlock) % VSTB_RING_FRAMES;
++    for (U32 c = 0; c < 2; c++) {
++        for (U32 f = 0; f < kBlock; f++) {
++            ring(kChannel, VSTB_IN_RINGS_OFFSET, c)[frame + f] = (float)(k * 1000 + f) * (c ? -1.0f : 1.0f);
++        }
++    }
++    __atomic_store_n(&ctl(kChannel)->requestSeq, (S32)(k + 1), __ATOMIC_SEQ_CST);
++    __atomic_add_fetch(&ctl(kChannel)->doorbell, 1, __ATOMIC_SEQ_CST);
++}
++
++// Guest: reads one record, as vsthost does (exact size).
++U32 readRecord(FsOpenNode* node, std::vector<U8>& buffer, U32 bytes) {
++    buffer.assign(bytes, 0);
++    U32 total = 0;
++    while (total < bytes) {
++        U32 n = node->readNative(buffer.data() + total, bytes - total);
++        if ((S32)n <= 0) {
++            break;
++        }
++        total += n;
++    }
++    return total;
++}
++
++// Guest: answers block k with output samples -(k * 1000 + frame), written in two pieces.
++void respond(FsOpenNode* node, U32 k, U32 split) {
++    std::vector<U8> out(VSTB_RESPONSE_HEADER_BYTES + 2 * kBlock * sizeof(float));
++    vstb_response* r = reinterpret_cast<vstb_response*>(out.data());
++    r->blockIndex = k;
++    r->frames = kBlock;
++    r->processUs = 100 + k;
++    float* audio = reinterpret_cast<float*>(out.data() + VSTB_RESPONSE_HEADER_BYTES);
++    for (U32 c = 0; c < 2; c++) {
++        for (U32 f = 0; f < kBlock; f++) {
++            audio[c * kBlock + f] = -(float)(k * 1000 + f) + (float)c;
++        }
++    }
++    const S32 before = load(&ctl(kChannel)->responseSeq);
++    expectU32("first piece accepted", node->writeNative(out.data(), split), split);
++    expectU32("no response before the record is complete", load(&ctl(kChannel)->responseSeq), before);
++    expectU32("second piece accepted", node->writeNative(out.data() + split, (U32)out.size() - split),
++        (U32)out.size() - split);
++}
++
++FsOpenNode* openDevice(const std::shared_ptr<FsNode>& node) {
++    FsOpenNode* open = node->open(K_O_RDWR);
++    if (!open) {
++        testFail("could not open the vstbridge test node");
++    }
++    return open;
++}
++
++void attach(FsOpenNode* node, U32 channel) {
++    vstb_attach a = {};
++    a.magic = VSTB_ATTACH_MAGIC;
++    a.channel = channel;
++    a.sampleRate = 48000;
++    a.blockFrames = kBlock;
++    a.inPorts = 1;
++    a.outPorts = 1;
++    a.pluginLatency = 7;
++    expectU32("attach accepted", node->writeNative(reinterpret_cast<U8*>(&a), sizeof a), sizeof a);
++}
++
++} // namespace
++
++void testVstBridge() {
++    const BString root = B("tmp/test-vstbridge-root");
++    std::error_code error;
++    std::filesystem::create_directories(root.c_str(), error);
++    Fs::initFileSystem(root);
++    std::shared_ptr<FsNode> rootNode = Fs::getNodeFromLocalPath(B(""), B("/"), true);
++    std::shared_ptr<FsNode> node = Fs::addVirtualFile(B("/vstbridge"), openDevVstBridge,
++        K__S_IREAD | K__S_IWRITE | K__S_IFCHR, k_mdev(10, 240), rootNode);
++
++    const vstb_region_header* h = reinterpret_cast<const vstb_region_header*>(region());
++    expectU32("region magic", h->magic, VSTB_MAGIC);
++    expectU32("region size", h->regionBytes, VSTB_REGION_BYTES);
++
++    // An unattached handle refuses reads.
++    FsOpenNode* audio = openDevice(node);
++    U8 byte = 0;
++    expectU32("read before attach", audio->readNative(&byte, 1), (U32)-K_EINVAL);
++
++    const S32 generation = load(&ctl(kChannel)->generation);
++    attach(audio, kChannel);
++    expectU32("state ready", load(&ctl(kChannel)->state), VSTB_STATE_READY);
++    expectU32("generation bumped", load(&ctl(kChannel)->generation), generation + 1);
++    expectU32("block frames", load(&ctl(kChannel)->blockFrames), kBlock);
++    expectU32("plugin latency", load(&ctl(kChannel)->pluginLatency), 7);
++    expectU32("sequences restart", load(&ctl(kChannel)->requestSeq), 0);
++
++    // In order, across the ring wrap (8192 / 256 = 32 blocks), one block ahead.
++    const U32 recordBytes = VSTB_REQUEST_BYTES + 2 * kBlock * sizeof(float);
++    std::vector<U8> buffer;
++    publish(0);
++    for (U32 k = 0; k < 100; k++) {
++        publish(k + 1);
++        expectU32("record size", readRecord(audio, buffer, recordBytes), recordBytes);
++        const vstb_request* r = reinterpret_cast<const vstb_request*>(buffer.data());
++        expectU32("block index", r->blockIndex, k);
++        expectU32("event note", r->events[0].midi[1], k & 0x7f);
++        const float* in = reinterpret_cast<const float*>(buffer.data() + VSTB_REQUEST_BYTES);
++        expectFloat("input L", in[17], (float)(k * 1000 + 17));
++        expectFloat("input R", in[kBlock + 17], -(float)(k * 1000 + 17));
++        respond(audio, k, 1 + (k * 37) % (VSTB_RESPONSE_HEADER_BYTES + 2 * kBlock * 4 - 1));
++        expectU32("response seq", load(&ctl(kChannel)->responseSeq), k + 1);
++        const U32 frame = (k * kBlock) % VSTB_RING_FRAMES;
++        expectFloat("output L in ring", ring(kChannel, VSTB_OUT_RINGS_OFFSET, 0)[frame + 5], -(float)(k * 1000 + 5));
++        expectFloat("output R in ring", ring(kChannel, VSTB_OUT_RINGS_OFFSET, 1)[frame + 5], -(float)(k * 1000 + 5) + 1);
++        expectU32("process time", load(&ctl(kChannel)->processUs[k % VSTB_SLOTS]), 100 + k);
++    }
++    // Block 100 was published above and is read next.
++    expectU32("pending block 100", readRecord(audio, buffer, recordBytes), recordBytes);
++    expectU32("block 100", reinterpret_cast<const vstb_request*>(buffer.data())->blockIndex, 100);
++
++#ifndef BOXEDWINE_MULTI_THREADED
++    // Nothing pending: the single-threaded build returns no data instead of blocking.
++    expectU32("no request pending", audio->readNative(buffer.data(), recordBytes), 0);
++#endif
++
++    // The host runs 40 blocks ahead: more than the ring holds (window 31), so the
++    // device skips to the oldest block whose slot and inputs are intact.
++    for (U32 k = 101; k < 141; k++) {
++        publish(k);
++    }
++    expectU32("skipped record", readRecord(audio, buffer, recordBytes), recordBytes);
++    expectU32("oldest safe block", reinterpret_cast<const vstb_request*>(buffer.data())->blockIndex, 141 - 31);
++    expectU32("skip count", load(&ctl(kChannel)->skipped), 141 - 31 - 101);
++    expectFloat("skipped block's input", reinterpret_cast<const float*>(buffer.data() + VSTB_REQUEST_BYTES)[3],
++        (float)(110 * 1000 + 3));
++    for (U32 k = 111; k < 141; k++) {
++        readRecord(audio, buffer, recordBytes);
++    }
++
++    // Control channel: a request is read as header then payload, and a KICK
++    // written there makes the audio channel's next read a kick record.
++    FsOpenNode* control = openDevice(node);
++    attach(control, 0);
++    expectU32("bridge serving", h->bridgeState, VSTB_BRIDGE_SERVING);
++    vstb_msg* request = reinterpret_cast<vstb_msg*>(region() + VSTB_CTRL_REQUEST_OFFSET);
++    const S32 seq = load(&ctrl()->requestSeq) + 1;
++    request->seq = (U32)seq;
++    request->op = VSTB_OP_PING;
++    request->length = 5;
++    memcpy(region() + VSTB_CTRL_REQUEST_OFFSET + sizeof(vstb_msg), "hello", 5);
++    __atomic_store_n(&ctrl()->requestSeq, seq, __ATOMIC_SEQ_CST);
++    expectU32("control header", readRecord(control, buffer, sizeof(vstb_msg)), sizeof(vstb_msg));
++    expectU32("control op", reinterpret_cast<const vstb_msg*>(buffer.data())->op, VSTB_OP_PING);
++    expectU32("control payload", readRecord(control, buffer, 5), 5);
++    expectU32("payload bytes", memcmp(buffer.data(), "hello", 5), 0);
++
++    std::vector<U8> reply(sizeof(vstb_msg) + 4);
++    vstb_msg* msg = reinterpret_cast<vstb_msg*>(reply.data());
++    msg->seq = (U32)seq;
++    msg->op = VSTB_OP_PING;
++    msg->length = 4;
++    memcpy(reply.data() + sizeof(vstb_msg), "pong", 4);
++    control->writeNative(reply.data(), (U32)reply.size());
++    expectU32("control response seq", load(&ctrl()->responseSeq), seq);
++    expectU32("control response", memcmp(region() + VSTB_CTRL_RESPONSE_OFFSET + sizeof(vstb_msg), "pong", 4), 0);
++
++    vstb_msg kick = {};
++    kick.op = VSTB_OP_KICK;
++    kick.channel = kChannel;
++    control->writeNative(reinterpret_cast<U8*>(&kick), sizeof kick);
++    expectU32("kick record is short", readRecord(audio, buffer, recordBytes), VSTB_REQUEST_BYTES);
++    expectU32("kick flag", reinterpret_cast<const vstb_request*>(buffer.data())->flags, VSTB_REQ_KICK);
++
++#ifdef BOXEDWINE_MULTI_THREADED
++    // A blocked read wakes when the host publishes from another thread.
++    std::thread host([] {
++        std::this_thread::sleep_for(std::chrono::milliseconds(20));
++        publish(141);
++    });
++    expectU32("blocking read", readRecord(audio, buffer, recordBytes), recordBytes);
++    expectU32("woken block", reinterpret_cast<const vstb_request*>(buffer.data())->blockIndex, 141);
++    host.join();
++#endif
++
++    delete control;
++    delete audio;
++    expectU32("closed", load(&ctl(kChannel)->state), VSTB_STATE_CLOSED);
++    expectU32("bridge stopped", h->bridgeState, VSTB_BRIDGE_NONE);
++    KSystem::setProcNode(nullptr);
++    Fs::shutDown();
++    Fs::deleteNativeDirAndAllFilesInDir(root);
++}
++
++#endif
+diff --git a/source/test/devs/testVstBridge.h b/source/test/devs/testVstBridge.h
+new file mode 100644
+index 00000000..d4143e00
+--- /dev/null
++++ b/source/test/devs/testVstBridge.h
+@@ -0,0 +1,15 @@
++/*
++ *  Copyright (C) 2026  The BoxedWine Team
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ */
++
++#ifndef __TEST_VST_BRIDGE_H__
++#define __TEST_VST_BRIDGE_H__
++
++void testVstBridge();
++
++#endif
+diff --git a/source/test/testMain.cpp b/source/test/testMain.cpp
+index cd76e862..364fe9fb 100644
+--- a/source/test/testMain.cpp
++++ b/source/test/testMain.cpp
+@@ -58,6 +58,7 @@
+ #include "cpu/testXchg.h"
+ #include "cpu/testXor.h"
+ #include "devs/testDspAudio.h"
++#include "devs/testVstBridge.h"
+ #include "mmu/testSelfModifying.h"
+ #include "opengl/testOpenGL.h"
+ #if defined(BOXEDWINE_JIT_X86) || defined(BOXEDWINE_JIT_X64) || defined(BOXEDWINE_JIT_ARMV8)
+@@ -206,6 +207,7 @@ const TestEntry TEST_ENTRIES[] = {
+         "Test Emscripten MT OpenGL proc bootstrap before context", TEST_ENTRY_SERIAL},
+ #else
+     {testDspAudioWriteMath, "Test DSP Audio Write Math"},
++    {testVstBridge, "Test /dev/vstbridge records, rings and control", TEST_ENTRY_SERIAL},
+     {testFastModeSelectionHelpers, "Test fast mode selection helpers"},
+ #ifndef BOXEDWINE_MULTI_THREADED
+     {testSingleThreadSchedulerTimeSlice, "Test single-thread scheduler timed turns", TEST_ENTRY_SERIAL},
