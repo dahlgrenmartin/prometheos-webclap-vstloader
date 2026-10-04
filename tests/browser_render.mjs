@@ -4,7 +4,11 @@
 import { chromium } from "playwright";
 
 const [base, shots, ...plugins] = process.argv.slice(2);
-const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
+// CHROMIUM=/path/to/chrome uses a preinstalled browser instead of Playwright's own.
+const browser = await chromium.launch({
+  args: ["--autoplay-policy=no-user-gesture-required"],
+  executablePath: process.env.CHROMIUM || undefined,
+});
 const page = await browser.newPage({ viewport: { width: 1100, height: 1000 } });
 page.on("pageerror", (e) => console.log("pageerror:", e.message));
 await page.goto(`${base}/index.html`);
@@ -24,7 +28,8 @@ for (const plugin of plugins) {
   console.log(JSON.stringify({
     plugin, ok, seconds: (Date.now() - started) / 1000, boot: result.bootSeconds, error: result.error,
     name: r.name, format: r.format, peak: r.peak, rms: r.rms, nonFinite: r.nonFinite,
-    renderMs: r.renderMs, realtimeFactor: r.realtimeFactor, params: (r.params || []).length,
+    renderMs: r.renderMs, initMs: r.initMs, processMs: r.processMs, realtimeFactor: r.realtimeFactor,
+    params: (r.params || []).length,
   }));
   if (shots) await page.screenshot({ path: `${shots}/${plugin.replace(/\W+/g, "_")}.png`, fullPage: true });
 }

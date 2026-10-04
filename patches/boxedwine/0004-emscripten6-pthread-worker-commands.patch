@@ -1,0 +1,82 @@
+diff --git a/project/emscripten/boxedwine-wasm-jit-module-broker.js b/project/emscripten/boxedwine-wasm-jit-module-broker.js
+index 46940721..b27f78ee 100644
+--- a/project/emscripten/boxedwine-wasm-jit-module-broker.js
++++ b/project/emscripten/boxedwine-wasm-jit-module-broker.js
+@@ -266,13 +266,27 @@
+ 
+     globalThis.bwWasmJitBrokerTestLocalSnapshot = snapshotLocalStats;
+ 
++    // Emscripten 6 keeps running workers only in PThread.pthreads (keyed by
++    // pthread_t); older releases also listed them in PThread.runningWorkers.
++    // Worker-to-main 'call Module[handler](...args)' command. Emscripten 6 numbers its
++    // worker commands (libpthread.js CMD_CALL_HANDLER = 9); older releases used the
++    // string 'callHandler'. The wrong one is dropped as an unknown command.
++    var BW_CMD_CALL_HANDLER = 9;
++
++    function runningWorkerList() {
++        if (PThread.runningWorkers) {
++            return PThread.runningWorkers;
++        }
++        return Object.values(PThread.pthreads || {});
++    }
++
+     function allocatedWorkers() {
+         var workers = [];
+         var seen = new Set();
+         if (typeof PThread === 'undefined') {
+             return workers;
+         }
+-        PThread.runningWorkers.concat(PThread.unusedWorkers).forEach(function(worker) {
++        runningWorkerList().concat(PThread.unusedWorkers).forEach(function(worker) {
+             if (worker && !seen.has(worker)) {
+                 seen.add(worker);
+                 workers.push(worker);
+@@ -412,7 +426,7 @@
+         if (typeof ENVIRONMENT_IS_PTHREAD !== 'undefined' && ENVIRONMENT_IS_PTHREAD) {
+             try {
+                 postToMain({
+-                    cmd: 'callHandler',
++                    cmd: BW_CMD_CALL_HANDLER,
+                     handler: 'bwWasmJitBrokerPublish',
+                     args: [moduleId, memoryId, memoryIncarnation, module,
+                         typeof _pthread_self === 'function' ? _pthread_self() : 0,
+@@ -905,7 +919,7 @@
+             retireOwner, groupInstanceKeys);
+         if (typeof ENVIRONMENT_IS_PTHREAD !== 'undefined' && ENVIRONMENT_IS_PTHREAD) {
+             postToMain({
+-                cmd: 'callHandler',
++                cmd: BW_CMD_CALL_HANDLER,
+                 handler: 'bwWasmJitBrokerReleaseMemory',
+                 args: [memoryId, memoryIncarnation, moduleIds, tableSlots,
+                     retireOwner, groupInstanceKeys]
+@@ -1245,7 +1259,7 @@
+         PThread.getNewWorker = function() {
+             return wrapWorkerRun(originalGetNewWorker.apply(this, arguments));
+         };
+-        PThread.runningWorkers.concat(PThread.unusedWorkers).forEach(wrapWorkerRun);
++        runningWorkerList().concat(PThread.unusedWorkers).forEach(wrapWorkerRun);
+     }
+ 
+     function applyWorkerPurge(message) {
+@@ -1301,7 +1315,7 @@
+             Atomics.notify(HEAP32, message.received >> 2);
+         } else if (message.type === 'statsRequest') {
+             postToMain({
+-                cmd: 'callHandler',
++                cmd: BW_CMD_CALL_HANDLER,
+                 handler: 'bwWasmJitBrokerStatsReply',
+                 args: [message.requestId, message.token || workerStatsToken, snapshotLocalStats()]
+             });
+diff --git a/source/opengl/sdl/sdlgl.cpp b/source/opengl/sdl/sdlgl.cpp
+index faf4a8fa..b0b5289f 100644
+--- a/source/opengl/sdl/sdlgl.cpp
++++ b/source/opengl/sdl/sdlgl.cpp
+@@ -274,7 +274,7 @@ EM_JS(void, boxedwinePresentCurrentWebGLFrame, (int requestedWidth, int requeste
+     try {
+         var bitmap = source.transferToImageBitmap();
+         postMessage({
+-            cmd: 'callHandler',
++            cmd: 9, // Emscripten 6 CMD_CALL_HANDLER (was the string 'callHandler')
+             handler: 'boxedwinePresentFrame',
+             args: [bitmap, presentState, sx, sy, sw, sh]
+         }, [bitmap]);

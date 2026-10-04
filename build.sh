@@ -29,12 +29,13 @@ $CXX -O2 -std=c++17 -Wall -shared -Iinclude -Ivendor plugins/vst3/poc_synth_vst3
   -o build/PoCSynth.vst3 -static -Wl,--kill-at -Wl,--enable-stdcall-fixup
 $CXX -O2 -std=c++17 -Wall -Iinclude -Ivendor host/vsthost.cpp -o build/vsthost.exe -static -lwinmm
 $CC -O2 tests/wintest.c -o build/wintest.exe
+$CC -O2 -Wall tests/devtest.c -o build/devtest.exe
 
 plugins_json='[
   {"file": "PoCSynth.dll", "label": "PoC Synth", "format": "vst2", "note": "test plugin built here"},
   {"file": "PoCSynth.vst3", "label": "PoC Synth", "format": "vst3", "note": "test plugin built here"}'
 rm -rf app && mkdir app
-cp build/vsthost.exe build/PoCSynth.dll build/PoCSynth.vst3 app/
+cp build/vsthost.exe build/PoCSynth.dll build/PoCSynth.vst3 build/devtest.exe app/
 if [ "${WITH_DEXED:-0}" = 1 ]; then
   echo "== Dexed 0.9.3 (third-party 32-bit Windows VST2)"
   [ -f .cache/dexed-0.9.3-win.zip ] || curl -fsSL -o .cache/dexed-0.9.3-win.zip "$DEXED_URL"
