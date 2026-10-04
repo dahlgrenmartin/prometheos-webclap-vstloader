@@ -119,6 +119,11 @@ python3 serve.py 8080 dist      # open http://127.0.0.1:8080/
 BOXEDWINE_BUILD=/path/to/Boxedwine/project/emscripten/Build/MultiThreadedJit DIST=dist-mt WITH_DEXED=1 ./build.sh
 python3 serve.py 8080 dist-mt
 node tests/realtime.mjs http://127.0.0.1:8080 --plugin Dexed.dll --latency 2048 --seconds 600
+
+# buzz-remote's winvst machine against these builds (dist-mt live, dist-st for the replay)
+cd ../../apps/buzz-remote
+node tests/winvst-browser/build.mjs
+node tests/winvst-browser/run.mjs --scenarios song,null,bzw --plugin Dexed.dll --seconds 600
 ```
 
 Emscripten fetches its zlib and SDL2 ports from GitHub archive URLs. Behind a

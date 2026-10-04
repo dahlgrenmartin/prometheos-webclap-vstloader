@@ -1,0 +1,467 @@
+{
+  "song:Dexed.dll": {
+    "file": "Dexed.dll",
+    "classId": "winvst:b73184588577b54fe18fb0429dd6d4a554460958286e0d66fc2a395e1e9b9d91:dexed",
+    "loadSeconds": 3.117120000000112,
+    "settleSeconds": 0,
+    "playedSeconds": 602.1673149999995,
+    "sampleRate": 48000,
+    "latency": 2048,
+    "block": 256,
+    "underrunBlocks": 0,
+    "skipped": 0,
+    "maxProcessUs": 8000,
+    "timeline": [
+      {
+        "seconds": 79,
+        "underruns": 0
+      },
+      {
+        "seconds": 89,
+        "underruns": 0
+      },
+      {
+        "seconds": 99,
+        "underruns": 0
+      },
+      {
+        "seconds": 109,
+        "underruns": 0
+      },
+      {
+        "seconds": 119,
+        "underruns": 0
+      },
+      {
+        "seconds": 129,
+        "underruns": 0
+      },
+      {
+        "seconds": 139,
+        "underruns": 0
+      },
+      {
+        "seconds": 149,
+        "underruns": 0
+      },
+      {
+        "seconds": 159,
+        "underruns": 0
+      },
+      {
+        "seconds": 169,
+        "underruns": 0
+      },
+      {
+        "seconds": 179,
+        "underruns": 0
+      },
+      {
+        "seconds": 189,
+        "underruns": 0
+      },
+      {
+        "seconds": 199,
+        "underruns": 0
+      },
+      {
+        "seconds": 209,
+        "underruns": 0
+      },
+      {
+        "seconds": 219,
+        "underruns": 0
+      },
+      {
+        "seconds": 229,
+        "underruns": 0
+      },
+      {
+        "seconds": 239,
+        "underruns": 0
+      },
+      {
+        "seconds": 249,
+        "underruns": 0
+      },
+      {
+        "seconds": 259,
+        "underruns": 0
+      },
+      {
+        "seconds": 269,
+        "underruns": 0
+      },
+      {
+        "seconds": 279,
+        "underruns": 0
+      },
+      {
+        "seconds": 289,
+        "underruns": 0
+      },
+      {
+        "seconds": 299,
+        "underruns": 0
+      },
+      {
+        "seconds": 309,
+        "underruns": 0
+      },
+      {
+        "seconds": 319,
+        "underruns": 0
+      },
+      {
+        "seconds": 329,
+        "underruns": 0
+      },
+      {
+        "seconds": 339,
+        "underruns": 0
+      },
+      {
+        "seconds": 349,
+        "underruns": 0
+      },
+      {
+        "seconds": 359,
+        "underruns": 0
+      },
+      {
+        "seconds": 369,
+        "underruns": 0
+      },
+      {
+        "seconds": 379,
+        "underruns": 0
+      },
+      {
+        "seconds": 389,
+        "underruns": 0
+      },
+      {
+        "seconds": 399,
+        "underruns": 0
+      },
+      {
+        "seconds": 409,
+        "underruns": 0
+      },
+      {
+        "seconds": 419,
+        "underruns": 0
+      },
+      {
+        "seconds": 429,
+        "underruns": 0
+      },
+      {
+        "seconds": 439,
+        "underruns": 0
+      },
+      {
+        "seconds": 449,
+        "underruns": 0
+      },
+      {
+        "seconds": 459,
+        "underruns": 0
+      },
+      {
+        "seconds": 469,
+        "underruns": 0
+      },
+      {
+        "seconds": 479,
+        "underruns": 0
+      },
+      {
+        "seconds": 489,
+        "underruns": 0
+      },
+      {
+        "seconds": 499,
+        "underruns": 0
+      },
+      {
+        "seconds": 509,
+        "underruns": 0
+      },
+      {
+        "seconds": 519,
+        "underruns": 0
+      },
+      {
+        "seconds": 529,
+        "underruns": 0
+      },
+      {
+        "seconds": 539,
+        "underruns": 0
+      },
+      {
+        "seconds": 549,
+        "underruns": 0
+      },
+      {
+        "seconds": 559,
+        "underruns": 0
+      },
+      {
+        "seconds": 569,
+        "underruns": 0
+      },
+      {
+        "seconds": 579,
+        "underruns": 0
+      },
+      {
+        "seconds": 589,
+        "underruns": 0
+      },
+      {
+        "seconds": 599,
+        "underruns": 0
+      },
+      {
+        "seconds": 609,
+        "underruns": 0
+      },
+      {
+        "seconds": 619,
+        "underruns": 0
+      },
+      {
+        "seconds": 629,
+        "underruns": 0
+      },
+      {
+        "seconds": 639,
+        "underruns": 0
+      },
+      {
+        "seconds": 649,
+        "underruns": 0
+      }
+    ],
+    "stalls": [],
+    "slowTurns": [
+      {
+        "block": 69527,
+        "atSeconds": 371.0201749999998,
+        "turnMs": 14.564
+      },
+      {
+        "block": 107326,
+        "atSeconds": 572.7001450000005,
+        "turnMs": 14.824
+      }
+    ],
+    "capture": {
+      "blocks": 3750,
+      "recordBytes": 2048,
+      "inPorts": 0,
+      "outPorts": 1,
+      "block": 256,
+      "frames": 1056000
+    },
+    "errors": [],
+    "identity": {
+      "pass": true,
+      "plugin": "Dexed.dll",
+      "latency": 2048,
+      "block": 256,
+      "shift": -896,
+      "alignBlock": 97,
+      "alignCandidates": 12,
+      "firstBlock": 0,
+      "blocks": 3750,
+      "identical": 3750,
+      "silentInRealtime": 0,
+      "mismatched": 0,
+      "firstMismatch": -1,
+      "maxDiffInMismatches": 0,
+      "referencePeak": 0.7938934564590454,
+      "replay": {
+        "ok": true,
+        "blocks": 3750,
+        "blockFrames": 256,
+        "sampleRate": 48000,
+        "outPorts": 1,
+        "loadMs": 11949,
+        "processMs": 7675,
+        "realtimeFactor": 2.606,
+        "slowBlocks": [
+          [
+            0,
+            581
+          ],
+          [
+            5,
+            9
+          ],
+          [
+            367,
+            12
+          ],
+          [
+            371,
+            12
+          ],
+          [
+            376,
+            33
+          ],
+          [
+            745,
+            24
+          ],
+          [
+            985,
+            38
+          ],
+          [
+            1052,
+            11
+          ],
+          [
+            1342,
+            25
+          ],
+          [
+            1635,
+            10
+          ],
+          [
+            1660,
+            12
+          ],
+          [
+            1665,
+            13
+          ],
+          [
+            1670,
+            12
+          ],
+          [
+            1675,
+            13
+          ],
+          [
+            1686,
+            11
+          ],
+          [
+            1701,
+            14
+          ],
+          [
+            1706,
+            13
+          ],
+          [
+            1711,
+            38
+          ],
+          [
+            2098,
+            35
+          ],
+          [
+            2327,
+            25
+          ],
+          [
+            2480,
+            24
+          ],
+          [
+            2781,
+            25
+          ],
+          [
+            3106,
+            41
+          ],
+          [
+            3325,
+            25
+          ],
+          [
+            3744,
+            29
+          ]
+        ]
+      },
+      "seconds": 41.664
+    }
+  },
+  "null": {
+    "seconds": 10,
+    "compensated": {
+      "frames": 480000,
+      "peak": [
+        2.220446049250313e-16,
+        0
+      ],
+      "nonZeroSamples": [
+        387153,
+        0
+      ]
+    },
+    "dryOnly": {
+      "frames": 96000,
+      "peak": [
+        0.8866812586784363,
+        0.8866812586784363
+      ],
+      "nonZeroSamples": [
+        78314,
+        78314
+      ]
+    },
+    "uncompensated": {
+      "frames": 96000,
+      "peak": [
+        1.0265175104141235,
+        1.026517391204834
+      ],
+      "nonZeroSamples": [
+        86506,
+        86506
+      ]
+    },
+    "invertUnderruns": 0,
+    "errors": []
+  },
+  "bzw": {
+    "blobBytes": 1261205,
+    "stateBytes": 6022,
+    "dataRoundTrip": true,
+    "sameStateAfterReload": true,
+    "params": [
+      {
+        "name": "Cutoff",
+        "beforeSave": 0.187506,
+        "afterReload": 0.187506,
+        "display": [
+          "0.187506",
+          "0.187506"
+        ]
+      },
+      {
+        "name": "Resonance",
+        "beforeSave": 0.750023,
+        "afterReload": 0.750023,
+        "display": [
+          "0.750023",
+          "0.750023"
+        ]
+      }
+    ],
+    "differingParams": [],
+    "errors": []
+  }
+}

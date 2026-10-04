@@ -1,0 +1,73 @@
+{
+  "song:PoCSynth.dll": {
+    "file": "PoCSynth.dll",
+    "classId": "winvst:d96a0756fe4cc1fb5765cd0f9ef74f3d231061d3dcb5afdaf86f0ceacb09a967:poc-synth",
+    "loadSeconds": 1.3222299999985845,
+    "settleSeconds": 0,
+    "playedSeconds": 62.07810500000045,
+    "sampleRate": 48000,
+    "latency": 2048,
+    "block": 256,
+    "underrunBlocks": 0,
+    "skipped": 0,
+    "maxProcessUs": 2000,
+    "timeline": [
+      {
+        "seconds": 67,
+        "underruns": 0
+      },
+      {
+        "seconds": 77,
+        "underruns": 0
+      },
+      {
+        "seconds": 87,
+        "underruns": 0
+      },
+      {
+        "seconds": 97,
+        "underruns": 0
+      }
+    ],
+    "stalls": [],
+    "slowTurns": [],
+    "capture": {
+      "blocks": 3750,
+      "recordBytes": 2048,
+      "inPorts": 0,
+      "outPorts": 1,
+      "block": 256,
+      "frames": 1056000
+    },
+    "errors": [],
+    "identity": {
+      "pass": true,
+      "plugin": "PoCSynth.dll",
+      "latency": 2048,
+      "block": 256,
+      "shift": -512,
+      "alignBlock": 3402,
+      "alignCandidates": 1,
+      "firstBlock": 0,
+      "blocks": 3750,
+      "identical": 3750,
+      "silentInRealtime": 0,
+      "mismatched": 0,
+      "firstMismatch": -1,
+      "maxDiffInMismatches": 0,
+      "referencePeak": 0.89157634973526,
+      "replay": {
+        "ok": true,
+        "blocks": 3750,
+        "blockFrames": 256,
+        "sampleRate": 48000,
+        "outPorts": 1,
+        "loadMs": 560,
+        "processMs": 979,
+        "realtimeFactor": 20.429,
+        "slowBlocks": []
+      },
+      "seconds": 21.658
+    }
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "plugin": "Dexed.dll",
+  "latency": 2048,
+  "block": 256,
+  "shift": -896,
+  "alignBlock": 97,
+  "alignCandidates": 12,
+  "firstBlock": 0,
+  "blocks": 3750,
+  "identical": 3750,
+  "silentInRealtime": 0,
+  "mismatched": 0,
+  "firstMismatch": -1,
+  "maxDiffInMismatches": 0,
+  "referencePeak": 0.7938934564590454,
+  "replay": {
+    "ok": true,
+    "error": "",
+    "blocks": 3750,
+    "blockFrames": 256,
+    "sampleRate": 48000,
+    "outPorts": 1,
+    "loadMs": 11949,
+    "processMs": 7675,
+    "realtimeFactor": 2.606,
+    "slowBlocks": [
+      [
+        0,
+        581
+      ],
+      [
+        5,
+        9
+      ],
+      [
+        367,
+        12
+      ],
+      [
+        371,
+        12
+      ],
+      [
+        376,
+        33
+      ],
+      [
+        745,
+        24
+      ],
+      [
+        985,
+        38
+      ],
+      [
+        1052,
+        11
+      ],
+      [
+        1342,
+        25
+      ],
+      [
+        1635,
+        10
+      ],
+      [
+        1660,
+        12
+      ],
+      [
+        1665,
+        13
+      ],
+      [
+        1670,
+        12
+      ],
+      [
+        1675,
+        13
+      ],
+      [
+        1686,
+        11
+      ],
+      [
+        1701,
+        14
+      ],
+      [
+        1706,
+        13
+      ],
+      [
+        1711,
+        38
+      ],
+      [
+        2098,
+        35
+      ],
+      [
+        2327,
+        25
+      ],
+      [
+        2480,
+        24
+      ],
+      [
+        2781,
+        25
+      ],
+      [
+        3106,
+        41
+      ],
+      [
+        3325,
+        25
+      ],
+      [
+        3744,
+        29
+      ]
+    ]
+  },
+  "seconds": 41.664
+}

@@ -147,6 +147,82 @@ Carried into Phase 1: L = 2,048 by default (L = 1,024 underruns, see above); the
 warm-up; one more 10-minute run per change to the hot path. Not measured here:
 a real laptop browser with audio hardware (headless only in this environment).
 
+## Phase 1: Windows VST machines in buzz-remote
+
+Measured on 2026-10-04 in headless Chromium (Playwright, 4 vCPUs, fake audio
+output) with the same emulator build as Phase 0 plus the Phase 1 `vsthost`
+(7 s warm-up, modules kept loaded). The page is
+`apps/buzz-remote/tests/winvst-browser` (`build.mjs`, then `run.mjs`): it runs
+buzz-remote's real AudioWorklet bundle (`src/engine/buzz-worklet.ts`), the
+`winvst` package install (DESCRIBE in the emulator, frozen descriptor),
+`WinVstCoordinator`/`WinVstHost` with the emulator in a hidden iframe, the
+project codec and the `prometheos.winvst/1` project bridge, and sends the
+worklet the `graph`/`song`/`sequence`/`transport` messages `EngineBridge` sends.
+`EngineBridge` and the React app are not loaded: the app imports the private
+`@prometheos/shared`, which this environment cannot fetch (see the design
+spec's §11).
+
+Song: one machine on 8 tracks, a 16-row pattern of four 8-note chords (each
+held 3 rows, varied velocities, note-offs on row 3 of 4) looping at 126 BPM,
+4 TPB, 48 kHz; the machine to Master at amp 1, centre pan. B = 256, **L = 2,048**.
+Play starts as soon as the machine is attached (no settle time).
+
+| Check | Result |
+|---|---|
+| Emulator boot (page load to `vsthost --bridge` serving) | 31.7 s |
+| Dexed install (upload + DESCRIBE on channel 8, first JIT) | 11.0 s; descriptor frozen in the package |
+| Dexed machine attach (LOAD + 7 s warm-up, channel 1) | 2.4 s (3.1 s until the worklet has the channel) |
+| **Dexed, 600 s of 8-voice chords** | **0 underrun blocks**, 0 skipped, no episode of the guest more than 4 blocks behind; 2 device turns over 10 ms (14.6, 14.8 ms) |
+| **Dexed identity** (first 20 s: 3,750 blocks, master output vs `vsthost --replay` in the ST build) | **3,750 of 3,750 blocks bit-identical** (peak 0.79) |
+| PoC Synth, 62 s | 0 underrun blocks, no device turn over 10 ms |
+| **PoC Synth identity** (20 s, 3,750 blocks) | **3,750 of 3,750 blocks bit-identical** (peak 0.89) |
+
+The identity check records the engine's master output, so
+`tests/identity.mjs --align 1` first finds where the machine's stream begins in
+the recording (the shift that reproduces the loudest reference block and the
+most blocks), then compares every block shifted by L bit for bit. Master's
+own path (machine output x 32768, amp 1, centre-pan gains 1 + 2^-52 and 1,
+/ 32768 into a float32 output) round-trips float32 samples exactly. Runs:
+`runs/phase1-buzz-dexed-600s.json`, `runs/phase1-buzz-pocsynth-60s.json`,
+`runs/phase1-identity-{dexed,pocsynth}.json`.
+
+![Dexed as a winvst machine: 602 s, 0 underrun blocks](phase1-buzz-dexed-600s.png)
+
+**Compensation (dry + PoC Invert null).** buzz-remote's FM synth (4 voices of
+the same chord pattern) goes to Master directly and through the PoC Invert
+(out = -in) as a winvst effect; the invert reports `latency()` = L = 2,048, and
+engine v2 delays the dry edge by that much.
+
+| 48 kHz, 10 s / 2 s recorded | Peak left / right | Non-zero samples left / right |
+|---|---|---|
+| Compensated (10 s, 480,000 frames) | 2.2e-16 / **0** | 387,153 / **0** |
+| Dry path alone (invert muted) | 0.887 / 0.887 | 78,314 / 78,314 |
+| Compensation off | 1.027 / 1.027 | 86,506 / 86,506 |
+
+The right channel nulls bit for bit. The left keeps x * 2^-52: Buzz's pan law
+gives the left channel 1 + 2^-52 at centre (sqrt2 * cos(pi/4)), and a delayed
+edge is mixed as `target + src * gain` in double before the float32 store, so
+-x + x * (1 + 2^-52) leaves x * 2^-52 (at most 2.2e-16 here, -313 dBFS). The
+alignment itself is exact; without compensation the mix peaks at 1.03. The
+invert had 0 underruns.
+
+**.bzw round trip.** Dexed loaded as a machine, Cutoff and Resonance set
+through the worklet (VST2 `setParameter`), its state captured (`effGetChunk`,
+6,022 bytes) into `Machine.data` and saved portable (1.26 MB `.bzw`, the
+binary embedded under `assets/plugins/`); then everything was released and
+uninstalled and the project decoded and restored through
+`prometheos.winvst/1` alone. The reopened machine's chunk is **byte-identical**
+to the saved one, Cutoff and Resonance read back 0.187506 and 0.750023, and
+no parameter differs from before the save.
+
+**Checks.** buzz-remote: 26 winvst unit tests pass; the full vitest suite has
+0 failing tests (2,013 passed; the base branch 1,987), and the same 50 test
+files fail to import `@prometheos/shared` on this branch and its base; ESLint
+0 errors (17 warnings, as on the base); `tsc --noEmit` the same 23 errors as
+the base, all from the missing `@prometheos/shared`. The
+`boxedwine-vst.yml` steps (`BUILD_SITE=0 ./build.sh`, the export checks,
+`node --check web/app.js`, `node tests/abi_layout.mjs`) pass locally.
+
 ## Natively (Linux, Boxedwine x64 JIT)
 
 | Plugin | Format | Result |
@@ -178,3 +254,6 @@ there.
 | The worklet never registers its processor | the shared bridge module created a `TextEncoder` at load; `AudioWorkletGlobalScope` has none | created on use, in the main-thread control client only |
 | The page rejects the emulator's memory as not shared | `instanceof SharedArrayBuffer` fails across the iframe's realm | checks `Object.prototype.toString` instead |
 | Dexed underruns 14 times in its first 1.75 s live | first-time JIT translation of paths the 1 s warm-up chord did not reach | warm-up of 8-note chords across the keyboard (3 s, `Vst2Instance::warmUp`) |
+| Dexed takes a 15-50 ms turn the first time a buzz-remote song reuses voices whose release had fully decayed (3 underrun blocks at L = 2,048 in one of two runs) | first-time JIT translation the legato warm-up never reached | warm-up of 7 s: plus detached chords with silence between them, transport playing |
+| The emulator dies when Dexed is unloaded a third time (`KMemory::commitPreparedCodeInvalidation nextOp->blockStart`) | a Boxedwine MT JIT bug invalidating unmapped code | `Vst2Instance` keeps the module loaded; later instances reuse it and its translated code |
+| A Boxedwine panic in a pthread shows only `ReferenceError: alert is not defined` | SDL's message box calls `alert()`, which workers lack, so the panic text is lost | diagnosed by rewriting that call to `console.error` in a local build; `WinVstHost`'s watchdog now silences and reports the machines |

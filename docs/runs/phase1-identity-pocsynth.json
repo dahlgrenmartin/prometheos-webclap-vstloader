@@ -1,0 +1,29 @@
+{
+  "plugin": "PoCSynth.dll",
+  "latency": 2048,
+  "block": 256,
+  "shift": -512,
+  "alignBlock": 3402,
+  "alignCandidates": 1,
+  "firstBlock": 0,
+  "blocks": 3750,
+  "identical": 3750,
+  "silentInRealtime": 0,
+  "mismatched": 0,
+  "firstMismatch": -1,
+  "maxDiffInMismatches": 0,
+  "referencePeak": 0.89157634973526,
+  "replay": {
+    "ok": true,
+    "error": "",
+    "blocks": 3750,
+    "blockFrames": 256,
+    "sampleRate": 48000,
+    "outPorts": 1,
+    "loadMs": 560,
+    "processMs": 979,
+    "realtimeFactor": 20.429,
+    "slowBlocks": []
+  },
+  "seconds": 21.658
+}
