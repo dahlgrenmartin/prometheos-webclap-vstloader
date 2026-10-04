@@ -1,0 +1,80 @@
+{
+  "song:PoCSynth": {
+    "file": "PoCSynth.wclap",
+    "classId": "webclap:prometheos.vstloader.351a25e0d3cec860:prometheos.vstloader.351a25e0d3cec860",
+    "loadSeconds": 31.847490000000224,
+    "bootSeconds": 30.158560000000055,
+    "playedSeconds": 62.01033499999996,
+    "sampleRate": 48000,
+    "latency": 2048,
+    "block": 256,
+    "underrunBlocks": 0,
+    "skipped": 0,
+    "maxProcessUs": 4000,
+    "stalls": [],
+    "slowTurns": [],
+    "timeline": [
+      {
+        "seconds": 32,
+        "underruns": 0
+      },
+      {
+        "seconds": 42,
+        "underruns": 0
+      },
+      {
+        "seconds": 52,
+        "underruns": 0
+      },
+      {
+        "seconds": 62,
+        "underruns": 0
+      }
+    ],
+    "capture": {
+      "blocks": 3750,
+      "recordBytes": 2048,
+      "lostWhileCapturing": 0,
+      "inPorts": 0,
+      "outPorts": 1,
+      "block": 256,
+      "frames": 1056000
+    },
+    "errors": [],
+    "identity": {
+      "pass": true,
+      "plugin": "PoCSynth.dll",
+      "latency": 2048,
+      "block": 256,
+      "shift": -2432,
+      "alignBlock": 3442,
+      "alignCandidates": 1,
+      "firstBlock": 2,
+      "blocks": 3748,
+      "identical": 3748,
+      "silentInRealtime": 0,
+      "mismatched": 0,
+      "firstMismatch": -1,
+      "maxDiffInMismatches": 0,
+      "referencePeak": 0.9414460062980652,
+      "replay": {
+        "ok": true,
+        "error": "",
+        "blocks": 3750,
+        "blockFrames": 256,
+        "sampleRate": 48000,
+        "outPorts": 1,
+        "loadMs": 569,
+        "processMs": 926,
+        "realtimeFactor": 21.598,
+        "slowBlocks": [
+          [
+            2264,
+            9
+          ]
+        ]
+      },
+      "seconds": 20.615
+    }
+  }
+}
