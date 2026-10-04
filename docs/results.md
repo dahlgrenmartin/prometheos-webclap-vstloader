@@ -223,6 +223,38 @@ the base, all from the missing `@prometheos/shared`. The
 `boxedwine-vst.yml` steps (`BUILD_SITE=0 ./build.sh`, the export checks,
 `node --check web/app.js`, `node tests/abi_layout.mjs`) pass locally.
 
+## The WebCLAP in buzz-remote (option A)
+
+Measured on 2026-10-04 in headless Chromium (4 vCPUs, fake audio output), with
+the same emulator build and `vsthost` as Phase 1, through the WebCLAP path:
+the wrapped bundle (`wrap/wrap.mjs`) installed by buzz-remote's own WebCLAP
+install, played by buzz-remote's AudioWorklet as a plain WebCLAP machine, its
+runtime page loaded by buzz-remote's `PluginRuntimeHost`
+(`prometheos.runtime/1`, buzz-remote branch `feat/buzz-webclap-runtime`), and
+the blocks moved by `runtime/relay-worker.js`. Nothing of the in-tree winvst
+machine is used. Harness: `tests/buzz-remote`. Same song as Phase 1 (8-voice
+chords, 126 BPM, 48 kHz), B = 256, **L = 2,048**, play as soon as the plugin
+streams.
+
+| Check | Result |
+|---|---|
+| Emulator boot (runtime page to `vsthost --bridge` serving) | 29.0 s |
+| Dexed's first load in the session (cold JIT, 7 s warm-up) | 11.6 s, streaming 42.3 s after the song was sent |
+| **Dexed, 602 s of 8-voice chords** | **0 underrun blocks**, 0 skipped; 3 device turns over 10 ms (18.6, 10.2, 13.1 ms); one momentary lag of 5 blocks |
+| **Dexed identity** (first 20 s; master output vs `vsthost --replay`) | **3,739 of 3,739 blocks bit-identical** |
+| PoC Synth, 62 s | 0 underrun blocks, no device turn over 10 ms |
+| **PoC Synth identity** (20 s) | **3,748 of 3,748 blocks bit-identical** |
+| Dry + PoC Invert null | right channel 0 in all 480,000 frames, left at most 2.2e-16 (the pan law's 1 + 2^-52); 1.03 without compensation; the invert's latency arrives through `clap.latency` |
+| State round trip (Dexed) | Cutoff and Resonance changed through the machine; the chunk the WebCLAP saves (6,022 bytes) changed with them, went through buzz-remote's project codec and came back byte-identical in a reopened instance |
+
+The relay adds a copy of each request and each answered block (about 2 KB
+each way) and two thread wake-ups per block, on threads of its own (estimated
+at tens of microseconds from Phase 0's measured 8-16 us wake-ups; not measured
+separately). The margins match the in-tree machine's (Phase 1: 2 turns over
+10 ms, 14.8 ms the longest). Runs: `runs/webclap-buzz-*.json`, `runs/webclap-identity-*.json`.
+
+![Dexed through buzz-remote's WebCLAP path: 602 s, 0 underrun blocks](webclap-buzz-dexed-600s.png)
+
 ## Natively (Linux, Boxedwine x64 JIT)
 
 | Plugin | Format | Result |

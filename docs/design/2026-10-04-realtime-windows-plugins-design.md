@@ -394,3 +394,36 @@ PoC Synth; the dry + PoC Invert null; the `.bzw` round trip of Dexed's chunk.
 
 Not in the MVP: the PoC sidechain plugin and multi-port routing tests (§8),
 source pre-roll, Freeze, plugin editors.
+
+## 12. The WebCLAP split (option A)
+
+Boxedwine is GPL, so the emulator and everything built around it moved out of
+prometheos-apps into this repository, and buzz-remote plays Windows plugins as
+WebCLAPs it loads dynamically. buzz-remote keeps only a generic host feature,
+`prometheos.runtime/1`: a WebCLAP names a runtime page, and the host loads it
+once and hands it the module's shared memory. Its design is in buzz-remote's
+`docs/superpowers/specs/2026-10-04-webclap-runtime-pages.md`.
+
+Two ways to run the runtime were weighed:
+
+- **A (chosen):** a trusted, same-origin runtime page that shares the WebCLAP
+  module's memory with the AudioWorklet. The audio path stays on shared memory
+  and futexes, as in Phase 0/1. The page runs with the host's origin, so hosts
+  only load runtimes they trust, and the host serves them itself.
+- **B:** a sandboxed runtime (origin `null`). It cannot share memory with the
+  app (cross-origin isolated pages key agent clusters by origin), so every
+  block would cross by messages between workers, with event-loop jitter.
+
+| Phase 1 (in-tree winvst machine) | WebCLAP (this repository) | Why |
+|---|---|---|
+| `WinVstMachine` (TypeScript, in the worklet) reads Boxedwine's memory | `wclap/vstloader.c`: a WebCLAP whose channel lives in its own shared memory; `runtime/relay-worker.js` copies each request and each answered block between that channel and `/dev/vstbridge` (2 workers per instance, futex waits) | A WebAssembly module cannot address a second memory, and the plugin's code must not live in buzz-remote |
+| `winvst` package, descriptor frozen at install by DESCRIBE | A `.wclap` bundle with `resources/vstloader.txt`, frozen when the `.dll` is wrapped (`wrap/wrap.mjs`) | buzz-remote installs it like any WebCLAP |
+| `WinVstHost` and its coordinator in buzz-remote | `runtime/` (this repository) plus the host's `PluginRuntimeHost` | Same split |
+| `prometheos.winvst/1` project extension; state read at save time | The WebCLAP package and `clap.state`. The state is the runtime's last report, refreshed at most every 0.5 s after parameter changes | `clap.state.save` is synchronous; the chunk lives in the emulator |
+| `WinVstHost`'s watchdog | Not ported yet | Next step |
+
+Measured through buzz-remote's WebCLAP path (results.md, "The WebCLAP in
+buzz-remote"): Dexed for 10 minutes with 0 underruns at L = 2,048; output
+bit-identical to `vsthost --replay` (Dexed 3,739/3,739 and PoC Synth
+3,748/3,748 blocks); the invert null and the state round trip pass, as they
+did in Phase 1.
