@@ -42,6 +42,7 @@ export const VSTB = {
     EV_PROGRAM: 3,
     REQ_PLAYING: 1,
     REQ_KICK: 2,
+    RESP_IO_CHANGED: 1,
     OP_PING: 1,
     OP_LOAD: 2,
     OP_DESCRIBE: 3,
@@ -62,7 +63,7 @@ export const VSTB = {
   channel_ctl: {
     size: 1024, state: 0, doorbell: 4, requestSeq: 8, responseSeq: 12, kickSeq: 16, generation: 20, sampleRate: 24,
     blockFrames: 28, inPorts: 32, outPorts: 36, pluginLatency: 40, underruns: 44, skipped: 48, lastProcessUs: 52,
-    maxProcessUs: 56, fault: 60, attached: 64, processUs: 128, wakeHist: 384, turnHist: 448,
+    maxProcessUs: 56, fault: 60, attached: 64, turnUs: 128, wakeHist: 384, turnHist: 448, doneBlock: 512,
   },
   event: { size: 16, offset: 0, type: 4, index: 6, value: 8, midi: 12 },
   request: {

@@ -12,10 +12,14 @@
 //           [--notes 60,64,67] [--seconds 3] [--rate 44100] [--block 512]
 //           [--param index=value] [--play]
 //   vsthost --serve <job directory>      (persistent host; see serve())
+//   vsthost --bridge                     (real-time host on /dev/vstbridge; see bridge.cpp)
+//   vsthost --replay <plugin> <capture> <out.f32>   (offline render of a bridge capture)
 //
 // Built as a 32-bit Windows console program with MinGW: Boxedwine emulates
 // 32-bit x86, so the plugins it can host are 32-bit Windows binaries.
 
+#include "bridge.h"
+#include "json.h"
 #include "vst2_abi.h"
 
 #include "pluginterfaces/base/ipluginbase.h"
@@ -83,16 +87,6 @@ void trace(const char *stage) {
         std::fprintf(f, "%lu %s\n", static_cast<unsigned long>(GetTickCount()), stage);
         std::fclose(f);
     }
-}
-
-std::string jsonEscape(const std::string &s) {
-    std::string out;
-    for (unsigned char c : s) {
-        if (c == '"' || c == '\\') { out += '\\'; out += static_cast<char>(c); }
-        else if (c < 0x20) { char b[8]; std::snprintf(b, sizeof b, "\\u%04x", c); out += b; }
-        else out += static_cast<char>(c);
-    }
-    return out;
 }
 
 std::string narrow(const Steinberg::Vst::TChar *text) {
@@ -719,12 +713,16 @@ int serve(const std::string &dir) {
 
 int main(int argc, char **argv) {
     if (argc == 3 && std::string(argv[1]) == "--serve") return serve(argv[2]);
+    if (argc >= 2 && std::string(argv[1]) == "--bridge") return runBridge();
+    if (argc >= 2 && std::string(argv[1]) == "--replay") return runReplay(argc, argv);
     Options o;
     if (!parseArgs(argc, argv, o)) {
         std::fprintf(stderr, "usage: vsthost <plugin.dll|plugin.vst3> [--out f.wav] [--report f.json] "
                              "[--notes 60,64,67] [--seconds 3] [--rate 44100] [--block 512] "
                              "[--param i=v] [--play]\n"
-                             "       vsthost --serve <job directory>\n");
+                             "       vsthost --serve <job directory>\n"
+                             "       vsthost --bridge\n"
+                             "       vsthost --replay <plugin.dll> <capture.bin> <out.f32>\n");
         return 2;
     }
     return runJob(o);

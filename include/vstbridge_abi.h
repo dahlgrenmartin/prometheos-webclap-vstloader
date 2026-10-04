@@ -40,8 +40,10 @@
  *          by the outputs (outPorts x 2 x B); the device copies them into the
  *          output rings at frame (k * B) % VSTB_RING_FRAMES and stores
  *          responseSeq = k + 1.
- *   host:  plays output frame t - L at time t, once responseSeq * B >= t - L + n.
- *          Otherwise it plays silence and counts an underrun.
+ *   host:  plays output frame t - L at time t from block b = (t - L) / B once
+ *          doneBlock[b % VSTB_SLOTS] == b + 1 (responseSeq alone would also
+ *          pass blocks the guest skipped). Otherwise it plays silence and
+ *          counts an underrun.
  * A read that is woken by kickSeq instead returns only a vstb_request with
  * frames = 0 and VSTB_REQ_KICK set, so the instance thread can run a command.
  * Guest buffers must be page-aligned and audio reads must ask for exactly
@@ -107,6 +109,12 @@ enum {
 enum {
     VSTB_REQ_PLAYING = 1u << 0, /* transport playing */
     VSTB_REQ_KICK = 1u << 1,    /* not audio: run the instance's pending command */
+};
+
+/* vstb_response.status */
+enum {
+    VSTB_RESP_IO_CHANGED = 1u << 0, /* the plugin reported new latency or I/O (audioMasterIOChanged):
+                                       the host re-describes and applies it at its next restart */
 };
 
 /* vstb_msg.op: control requests (host -> guest) */
@@ -184,15 +192,16 @@ typedef struct vstb_channel_ctl {
     int32_t pluginLatency;
     int32_t underruns;     /* host: blocks played as silence */
     int32_t skipped;       /* guest: requests skipped because it fell VSTB_SLOTS behind */
-    int32_t lastProcessUs; /* guest: plugin processing time of the last block */
+    int32_t lastProcessUs; /* guest: plugin processing time of the last block (guest clock: 1 ms steps in Boxedwine) */
     int32_t maxProcessUs;
     int32_t fault;
     int32_t attached;      /* handles bound to this channel */
     int32_t reserved0[15];
-    int32_t processUs[VSTB_SLOTS];          /* guest: processing time of block k at k % VSTB_SLOTS */
+    int32_t turnUs[VSTB_SLOTS];             /* device: block k's request delivered -> response written, us */
     int32_t wakeHist[VSTB_HIST_BUCKETS];    /* device: publish -> guest wake-up (requests with hostTimeMs) */
     int32_t turnHist[VSTB_HIST_BUCKETS];    /* device: request delivered -> response written */
-    int32_t reserved1[128];
+    int32_t doneBlock[VSTB_SLOTS];          /* device: k + 1 once block k's outputs are in the rings */
+    int32_t reserved1[64];
 } vstb_channel_ctl;
 
 typedef struct vstb_event {
@@ -223,7 +232,7 @@ typedef struct vstb_response {
     uint32_t blockIndex;
     uint32_t frames;
     uint32_t processUs; /* plugin processing time */
-    uint32_t status;
+    uint32_t status;    /* VSTB_RESP_* */
     uint32_t reserved[4];
 } vstb_response;
 
@@ -245,7 +254,7 @@ VSTB_STATIC_ASSERT(offsetof(vstb_request, tempo) == 16, "request.tempo");
 VSTB_STATIC_ASSERT(offsetof(vstb_request, hostTimeMs) == 40, "request.hostTimeMs");
 VSTB_STATIC_ASSERT(offsetof(vstb_request, eventCount) == 48, "request.eventCount");
 VSTB_STATIC_ASSERT(offsetof(vstb_request, events) == 64, "request.events");
-VSTB_STATIC_ASSERT(offsetof(vstb_channel_ctl, processUs) == 128, "ctl.processUs");
+VSTB_STATIC_ASSERT(offsetof(vstb_channel_ctl, turnUs) == 128, "ctl.turnUs");
 VSTB_STATIC_ASSERT(VSTB_CHANNEL_CTL_BYTES <= VSTB_SLOTS_OFFSET, "ctl fits before the slots");
 VSTB_STATIC_ASSERT(VSTB_CHANNELS_OFFSET % 4096u == 0, "channels 4096-aligned");
 VSTB_STATIC_ASSERT(VSTB_CHANNEL_BYTES % 4096u == 0, "channel stride 4096-aligned");

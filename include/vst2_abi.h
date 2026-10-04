@@ -93,6 +93,9 @@ enum {
     effGetChunk = 23,
     effSetChunk = 24,
     effProcessEvents = 25,
+    effGetProgramNameIndexed = 29,
+    effGetInputProperties = 33,
+    effGetOutputProperties = 34,
     effGetEffectName = 45,
     effGetVendorString = 47,
     effGetProductString = 48,
@@ -126,6 +129,15 @@ enum {
 };
 
 enum { kVstMidiType = 1 };
+
+/* effGetInputProperties / effGetOutputProperties */
+typedef struct VstPinProperties {
+    char label[64];
+    int32_t flags;
+    int32_t arrangementType;
+    char shortLabel[8];
+    char future[48];
+} VstPinProperties;
 
 typedef struct VstEvent {
     int32_t type;

@@ -64,10 +64,10 @@ index bb32f9e0..fd5d1222 100644
  cpus := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 1)
 diff --git a/source/kernel/devs/devvstbridge.cpp b/source/kernel/devs/devvstbridge.cpp
 new file mode 100644
-index 00000000..3f676601
+index 00000000..98f93a76
 --- /dev/null
 +++ b/source/kernel/devs/devvstbridge.cpp
-@@ -0,0 +1,434 @@
+@@ -0,0 +1,436 @@
 +/*
 + *  Copyright (C) 2026  The BoxedWine Team
 + *
@@ -454,12 +454,14 @@ index 00000000..3f676601
 +                memcpy(ring(channel, VSTB_OUT_RINGS_OFFSET, i) + frame,
 +                    data + VSTB_RESPONSE_HEADER_BYTES + i * blockFrames * sizeof(float), blockFrames * sizeof(float));
 +            }
-+            store(&c->processUs[k % VSTB_SLOTS], (S32)response.processUs);
++            const double turnUs = (nowMs() - deliveredMs) * 1000.0;
++            store(&c->turnUs[k % VSTB_SLOTS], (S32)turnUs);
++            store(&c->doneBlock[k % VSTB_SLOTS], (S32)(k + 1));
 +            store(&c->lastProcessUs, (S32)response.processUs);
 +            if ((S32)response.processUs > load(&c->maxProcessUs)) {
 +                store(&c->maxProcessUs, (S32)response.processUs);
 +            }
-+            histogram(c->turnHist, (nowMs() - deliveredMs) * 1000.0);
++            histogram(c->turnHist, turnUs);
 +            if ((S32)(k + 1) > load(&c->responseSeq)) {
 +                store(&c->responseSeq, (S32)(k + 1));
 +            }
@@ -504,10 +506,10 @@ index 00000000..3f676601
 +}
 diff --git a/source/kernel/devs/vstbridge_abi.h b/source/kernel/devs/vstbridge_abi.h
 new file mode 100644
-index 00000000..cd732847
+index 00000000..6043240d
 --- /dev/null
 +++ b/source/kernel/devs/vstbridge_abi.h
-@@ -0,0 +1,257 @@
+@@ -0,0 +1,266 @@
 +#pragma once
 +
 +/*
@@ -550,8 +552,10 @@ index 00000000..cd732847
 + *          by the outputs (outPorts x 2 x B); the device copies them into the
 + *          output rings at frame (k * B) % VSTB_RING_FRAMES and stores
 + *          responseSeq = k + 1.
-+ *   host:  plays output frame t - L at time t, once responseSeq * B >= t - L + n.
-+ *          Otherwise it plays silence and counts an underrun.
++ *   host:  plays output frame t - L at time t from block b = (t - L) / B once
++ *          doneBlock[b % VSTB_SLOTS] == b + 1 (responseSeq alone would also
++ *          pass blocks the guest skipped). Otherwise it plays silence and
++ *          counts an underrun.
 + * A read that is woken by kickSeq instead returns only a vstb_request with
 + * frames = 0 and VSTB_REQ_KICK set, so the instance thread can run a command.
 + * Guest buffers must be page-aligned and audio reads must ask for exactly
@@ -617,6 +621,12 @@ index 00000000..cd732847
 +enum {
 +    VSTB_REQ_PLAYING = 1u << 0, /* transport playing */
 +    VSTB_REQ_KICK = 1u << 1,    /* not audio: run the instance's pending command */
++};
++
++/* vstb_response.status */
++enum {
++    VSTB_RESP_IO_CHANGED = 1u << 0, /* the plugin reported new latency or I/O (audioMasterIOChanged):
++                                       the host re-describes and applies it at its next restart */
 +};
 +
 +/* vstb_msg.op: control requests (host -> guest) */
@@ -694,15 +704,16 @@ index 00000000..cd732847
 +    int32_t pluginLatency;
 +    int32_t underruns;     /* host: blocks played as silence */
 +    int32_t skipped;       /* guest: requests skipped because it fell VSTB_SLOTS behind */
-+    int32_t lastProcessUs; /* guest: plugin processing time of the last block */
++    int32_t lastProcessUs; /* guest: plugin processing time of the last block (guest clock: 1 ms steps in Boxedwine) */
 +    int32_t maxProcessUs;
 +    int32_t fault;
 +    int32_t attached;      /* handles bound to this channel */
 +    int32_t reserved0[15];
-+    int32_t processUs[VSTB_SLOTS];          /* guest: processing time of block k at k % VSTB_SLOTS */
++    int32_t turnUs[VSTB_SLOTS];             /* device: block k's request delivered -> response written, us */
 +    int32_t wakeHist[VSTB_HIST_BUCKETS];    /* device: publish -> guest wake-up (requests with hostTimeMs) */
 +    int32_t turnHist[VSTB_HIST_BUCKETS];    /* device: request delivered -> response written */
-+    int32_t reserved1[128];
++    int32_t doneBlock[VSTB_SLOTS];          /* device: k + 1 once block k's outputs are in the rings */
++    int32_t reserved1[64];
 +} vstb_channel_ctl;
 +
 +typedef struct vstb_event {
@@ -733,7 +744,7 @@ index 00000000..cd732847
 +    uint32_t blockIndex;
 +    uint32_t frames;
 +    uint32_t processUs; /* plugin processing time */
-+    uint32_t status;
++    uint32_t status;    /* VSTB_RESP_* */
 +    uint32_t reserved[4];
 +} vstb_response;
 +
@@ -755,7 +766,7 @@ index 00000000..cd732847
 +VSTB_STATIC_ASSERT(offsetof(vstb_request, hostTimeMs) == 40, "request.hostTimeMs");
 +VSTB_STATIC_ASSERT(offsetof(vstb_request, eventCount) == 48, "request.eventCount");
 +VSTB_STATIC_ASSERT(offsetof(vstb_request, events) == 64, "request.events");
-+VSTB_STATIC_ASSERT(offsetof(vstb_channel_ctl, processUs) == 128, "ctl.processUs");
++VSTB_STATIC_ASSERT(offsetof(vstb_channel_ctl, turnUs) == 128, "ctl.turnUs");
 +VSTB_STATIC_ASSERT(VSTB_CHANNEL_CTL_BYTES <= VSTB_SLOTS_OFFSET, "ctl fits before the slots");
 +VSTB_STATIC_ASSERT(VSTB_CHANNELS_OFFSET % 4096u == 0, "channels 4096-aligned");
 +VSTB_STATIC_ASSERT(VSTB_CHANNEL_BYTES % 4096u == 0, "channel stride 4096-aligned");
@@ -787,10 +798,10 @@ index 6e0493b0..5fed1f46 100644
      Fs::addVirtualFile(B("/etc/hosts"), openHosts, K__S_IREAD, k_mdev(0, 0), etcNode);
 diff --git a/source/test/devs/testVstBridge.cpp b/source/test/devs/testVstBridge.cpp
 new file mode 100644
-index 00000000..f43688d5
+index 00000000..fb7a7ce2
 --- /dev/null
 +++ b/source/test/devs/testVstBridge.cpp
-@@ -0,0 +1,255 @@
+@@ -0,0 +1,256 @@
 +/*
 + *  Copyright (C) 2026  The BoxedWine Team
 + *
@@ -966,7 +977,8 @@ index 00000000..f43688d5
 +        const U32 frame = (k * kBlock) % VSTB_RING_FRAMES;
 +        expectFloat("output L in ring", ring(kChannel, VSTB_OUT_RINGS_OFFSET, 0)[frame + 5], -(float)(k * 1000 + 5));
 +        expectFloat("output R in ring", ring(kChannel, VSTB_OUT_RINGS_OFFSET, 1)[frame + 5], -(float)(k * 1000 + 5) + 1);
-+        expectU32("process time", load(&ctl(kChannel)->processUs[k % VSTB_SLOTS]), 100 + k);
++        expectU32("guest process time", load(&ctl(kChannel)->lastProcessUs), 100 + k);
++        expectU32("done stamp", load(&ctl(kChannel)->doneBlock[k % VSTB_SLOTS]), k + 1);
 +    }
 +    // Block 100 was published above and is read next.
 +    expectU32("pending block 100", readRecord(audio, buffer, recordBytes), recordBytes);

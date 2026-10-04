@@ -57,6 +57,7 @@ int main(void) {
         FIELD("EV_PROGRAM", VSTB_EV_PROGRAM);
         FIELD("REQ_PLAYING", VSTB_REQ_PLAYING);
         FIELD("REQ_KICK", VSTB_REQ_KICK);
+        FIELD("RESP_IO_CHANGED", VSTB_RESP_IO_CHANGED);
         FIELD("OP_PING", VSTB_OP_PING);
         FIELD("OP_LOAD", VSTB_OP_LOAD);
         FIELD("OP_DESCRIBE", VSTB_OP_DESCRIBE);
@@ -133,9 +134,10 @@ int main(void) {
         OFF(vstb_channel_ctl, maxProcessUs);
         OFF(vstb_channel_ctl, fault);
         OFF(vstb_channel_ctl, attached);
-        OFF(vstb_channel_ctl, processUs);
+        OFF(vstb_channel_ctl, turnUs);
         OFF(vstb_channel_ctl, wakeHist);
         OFF(vstb_channel_ctl, turnHist);
+        OFF(vstb_channel_ctl, doneBlock);
         END();
     }
     {

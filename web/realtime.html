@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real-time Windows VST</title>
+<style>
+  :root {
+    --bg: #f4f4f1; --fg: #1d2025; --muted: #5d636b; --card: #ffffff; --line: #d9dad6;
+    --accent: #2f7fe0; --accent-ink: #ffffff; --ok: #1f8a4c; --bad: #c0392b; --key: #ffffff; --key-ink: #1d2025;
+    --black-key: #1d2025; --pressed: #2f7fe0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #15171a; --fg: #e9eaec; --muted: #9aa0a8; --card: #1d2025;
+      --line: #2c3037; --accent: #4c95f0; --accent-ink: #0b0d10; --ok: #46c47e; --bad: #ef6b5d; --key: #e9eaec;
+      --key-ink: #15171a; --black-key: #0b0d10; --pressed: #4c95f0; }
+  }
+  :root[data-theme="dark"] { --bg: #15171a; --fg: #e9eaec; --muted: #9aa0a8; --card: #1d2025;
+    --line: #2c3037; --accent: #4c95f0; --accent-ink: #0b0d10; --ok: #46c47e; --bad: #ef6b5d; --key: #e9eaec;
+    --key-ink: #15171a; --black-key: #0b0d10; --pressed: #4c95f0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .controls { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; align-items: end; }
+  @media (max-width: 640px) { .controls { grid-template-columns: 1fr 1fr; } }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+  select { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
+  button { padding: 9px 18px; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .status { display: flex; gap: 10px; align-items: center; font-size: 0.9rem; margin-top: 12px; min-height: 1.5em; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.busy { background: var(--accent); animation: pulse 1s infinite; }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  .keys { position: relative; height: 120px; display: flex; user-select: none; touch-action: none; overflow-x: auto; }
+  .key { flex: 0 0 34px; height: 100%; border: 1px solid var(--line); background: var(--key); color: var(--key-ink);
+    display: flex; align-items: flex-end; justify-content: center; font-size: 0.7rem; padding-bottom: 4px; cursor: pointer; }
+  .key.black { position: absolute; width: 22px; height: 62%; background: var(--black-key); color: transparent; z-index: 1; border: 0; }
+  .key.down { background: var(--pressed); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat { border-top: 1px solid var(--line); padding-top: 6px; }
+  .stat .v { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: 0.8rem; color: var(--muted); }
+  details summary { cursor: pointer; color: var(--muted); }
+  iframe { width: 100%; height: 360px; border: 1px solid var(--line); border-radius: 6px; background: #000; margin-top: 10px; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>A Windows VST, live</h1>
+  <p class="lede">A 32-bit Windows VST2 plugin under Wine in Boxedwine's multithreaded build, streamed block by block into an
+  AudioWorklet through <code>/dev/vstbridge</code>: shared WebAssembly memory, woken with <code>Atomics.notify</code>, no main thread on the audio path.</p>
+
+  <section class="card" aria-labelledby="setup-title">
+    <h2 id="setup-title" class="muted" style="font-size:0.95rem;margin:0 0 12px">Setup</h2>
+    <div class="controls">
+      <div>
+        <label for="plugin">Plugin (Windows binary)</label>
+        <select id="plugin"></select>
+      </div>
+      <div>
+        <label for="latency">Bridge latency L</label>
+        <select id="latency">
+          <option value="512">512 frames</option>
+          <option value="1024" selected>1,024 frames</option>
+          <option value="2048">2,048 frames</option>
+        </select>
+      </div>
+      <div>
+        <label for="block">Block B</label>
+        <select id="block">
+          <option value="128">128 frames</option>
+          <option value="256" selected>256 frames</option>
+          <option value="512">512 frames</option>
+        </select>
+      </div>
+      <button id="start" type="button">Start</button>
+    </div>
+    <div class="status" role="status" aria-live="polite"><span class="dot" id="dot"></span><span id="status">Idle</span></div>
+  </section>
+
+  <section class="card" aria-labelledby="keys-title">
+    <h2 id="keys-title" class="muted" style="font-size:0.95rem;margin:0 0 12px">Play (mouse, touch, computer keys A–K, or Web MIDI)</h2>
+    <div class="keys" id="keys" aria-label="Keyboard"></div>
+  </section>
+
+  <section class="card" aria-labelledby="stats-title">
+    <h2 id="stats-title" class="muted" style="font-size:0.95rem;margin:0 0 12px">Stream</h2>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <details class="card">
+    <summary>Emulator</summary>
+    <div id="frame-host"></div>
+  </details>
+</main>
+<script type="module" src="realtime.js"></script>
+</body>
+</html>

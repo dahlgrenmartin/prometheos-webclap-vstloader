@@ -6,7 +6,9 @@
 #      zip, vstpoc.zip and the demo page.
 #
 # Environment:
-#   BOXEDWINE_BUILD  Boxedwine Emscripten output dir (default ../../../boxedwine/project/emscripten/Build/Jit)
+#   BOXEDWINE_BUILD  Boxedwine Emscripten output dir (default ../../../boxedwine/project/emscripten/Build/Jit;
+#                    the real-time page needs Build/MultiThreadedJit with patches 0003/0004)
+#   DIST             output directory for the static site (default dist)
 #   WINE_FS_ZIP      Boxedwine Wine filesystem zip (default: downloaded to .cache/)
 #   WITH_DEXED=1     also fetch Dexed 0.9.3's 32-bit VST2 (GPL-3, third-party binary)
 #   BUILD_SITE=0     stop after the Windows binaries and the zips (no Boxedwine needed)
@@ -27,7 +29,8 @@ $CC -O2 -std=c11 -Wall -shared -Iinclude plugins/vst2/poc_synth_vst2.c plugins/v
   -o build/PoCSynth.dll -static-libgcc -lm
 $CXX -O2 -std=c++17 -Wall -shared -Iinclude -Ivendor plugins/vst3/poc_synth_vst3.cpp plugins/vst3/poc_synth_vst3.def \
   -o build/PoCSynth.vst3 -static -Wl,--kill-at -Wl,--enable-stdcall-fixup
-$CXX -O2 -std=c++17 -Wall -Iinclude -Ivendor host/vsthost.cpp -o build/vsthost.exe -static -lwinmm
+$CXX -O2 -std=c++17 -Wall -Iinclude -Ivendor host/vsthost.cpp host/bridge.cpp host/vst2_instance.cpp \
+  -o build/vsthost.exe -static -lwinmm
 $CC -O2 tests/wintest.c -o build/wintest.exe
 $CC -O2 -Wall tests/devtest.c -o build/devtest.exe
 
@@ -64,13 +67,15 @@ WINE_FS_ZIP=${WINE_FS_ZIP:-$here/.cache/TinyCore15Wine11.0.zip}
 if [ ! -f "$WINE_FS_ZIP" ]; then curl -fsSL -o "$WINE_FS_ZIP" "$WINE_FS_URL"; fi
 echo "$WINE_FS_SHA256  $WINE_FS_ZIP" | sha256sum -c -
 
-echo "== dist/"
+DIST=${DIST:-dist}
+echo "== $DIST/"
 [ -f "$BOXEDWINE_BUILD/boxedwine.html" ] || { echo "missing Boxedwine build in $BOXEDWINE_BUILD"; exit 1; }
-rm -rf dist && mkdir -p dist/boxedwine
-cp -r "$BOXEDWINE_BUILD"/. dist/boxedwine/
-rm -rf dist/boxedwine/home dist/boxedwine/.*-config.json
-ln -f "$WINE_FS_ZIP" dist/boxedwine/TinyCore15Wine11.0.zip 2>/dev/null || cp "$WINE_FS_ZIP" dist/boxedwine/
-cp build/vstpoc.zip build/vstpoc-prefix.zip dist/boxedwine/
-cp web/index.html web/app.js dist/
-printf '%s\n' "$plugins_json" > dist/plugins.json
-echo "Serve dist/ (e.g. python3 -m http.server -d dist 8080) and open /index.html"
+rm -rf "$DIST" && mkdir -p "$DIST/boxedwine"
+cp -r "$BOXEDWINE_BUILD"/. "$DIST/boxedwine/"
+rm -rf "$DIST"/boxedwine/home "$DIST"/boxedwine/.*-config.json
+ln -f "$WINE_FS_ZIP" "$DIST/boxedwine/TinyCore15Wine11.0.zip" 2>/dev/null || cp "$WINE_FS_ZIP" "$DIST/boxedwine/"
+cp build/vstpoc.zip build/vstpoc-prefix.zip "$DIST/boxedwine/"
+cp web/index.html web/app.js web/realtime.html web/realtime.js web/realtime-worklet.js web/bench-worker.js \
+  web/vstbridge.js web/vstbridge-abi.js "$DIST/"
+printf '%s\n' "$plugins_json" > "$DIST/plugins.json"
+echo "Serve $DIST/ with COOP/COEP (python3 serve.py 8080 $DIST) and open /index.html (offline) or /realtime.html"
