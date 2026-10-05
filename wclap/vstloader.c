@@ -61,6 +61,7 @@ typedef struct {
     char runtime[1024];
     char dll[NAME_BYTES];
     bool synth;
+    bool vst3; /* format=vst3: only the description differs */
     uint32_t inPorts, outPorts;
     uint32_t pluginLatency;
     uint32_t bridgeLatency;
@@ -110,6 +111,7 @@ static bool readDescriptor(const char *bundle) {
         else if (!strcmp(key, "sha256")) copyField(g_desc.sha256, sizeof g_desc.sha256, value);
         else if (!strcmp(key, "runtime")) copyField(g_desc.runtime, sizeof g_desc.runtime, value);
         else if (!strcmp(key, "dll")) copyField(g_desc.dll, sizeof g_desc.dll, value);
+        else if (!strcmp(key, "format")) g_desc.vst3 = !strcmp(value, "vst3");
         else if (!strcmp(key, "synth")) g_desc.synth = atoi(value) != 0;
         else if (!strcmp(key, "inPorts")) g_desc.inPorts = (uint32_t)atoi(value);
         else if (!strcmp(key, "outPorts")) g_desc.outPorts = (uint32_t)atoi(value);
@@ -796,7 +798,9 @@ static bool entry_init(const char *plugin_path) {
     g_clap_desc.manual_url = "";
     g_clap_desc.support_url = "";
     g_clap_desc.version = g_desc.version;
-    g_clap_desc.description = "Windows VST2 plugin, run by Boxedwine (prometheos-webclap-vstloader)";
+    g_clap_desc.description = g_desc.vst3
+        ? "32-bit Windows VST3 plugin, run in Wine by Boxedwine (prometheos-webclap-vstloader)"
+        : "32-bit Windows VST2 plugin, run in Wine by Boxedwine (prometheos-webclap-vstloader)";
     g_clap_desc.features = g_desc.synth ? g_features_synth : g_features_effect;
     return true;
 }
