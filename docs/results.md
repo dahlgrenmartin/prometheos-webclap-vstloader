@@ -278,6 +278,20 @@ One run with Dexed loaded right after the VST3 instance (two instances in one
 emulator on 4 vCPUs) had 2 underrun blocks at L = 2,048; Dexed alone had none.
 Runs: `runs/release-buzz-60s.json`.
 
+The same checks against the **CI-built release** (`release.yml`'s artifact on
+pull request #2: Boxedwine built from source on the runner, bundles naming
+`/prometheos-apps/vstloader/runtime/index.html`, the runtime unpacked and
+served at that path, as in the apps deployment):
+
+| Check | Result |
+|---|---|
+| PoC Synth VST3, 62 s | 0 underrun blocks; identity **3,750 / 3,750** |
+| Dexed alone, 127 s | **0 underrun blocks**; identity 938 / 938 (5 s capture) |
+| Dexed right after the VST3 instance, 62 s | 1 underrun block (at 32 s); identity **3,747 / 3,747** |
+| PoC Invert null; Dexed state round trip | 2.2e-16 / 0; byte-identical after reopen |
+
+Runs: `runs/release-ci-buzz.json`.
+
 ## Natively (Linux, Boxedwine x64 JIT)
 
 | Plugin | Format | Result |

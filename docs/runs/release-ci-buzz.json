@@ -1,0 +1,401 @@
+{
+ "runs-ci:song:PoCSynth-vst3": {
+  "file": "PoCSynth-vst3.wclap.tar.gz",
+  "classId": "webclap:prometheos.vstloader.9cf5d3f46d29332b:prometheos.vstloader.9cf5d3f46d29332b",
+  "loadSeconds": 32.20050500000001,
+  "bootSeconds": 30.490629999999996,
+  "playedSeconds": 62.02126999999999,
+  "sampleRate": 48000,
+  "latency": 2048,
+  "block": 256,
+  "underrunBlocks": 0,
+  "skipped": 0,
+  "maxProcessUs": 3000,
+  "stalls": [],
+  "slowTurns": [],
+  "timeline": [
+   {
+    "seconds": 32,
+    "underruns": 0
+   },
+   {
+    "seconds": 42,
+    "underruns": 0
+   },
+   {
+    "seconds": 52,
+    "underruns": 0
+   },
+   {
+    "seconds": 62,
+    "underruns": 0
+   }
+  ],
+  "capture": {
+   "blocks": 3750,
+   "recordBytes": 2048,
+   "lostWhileCapturing": 0,
+   "inPorts": 0,
+   "outPorts": 1,
+   "block": 256,
+   "frames": 1056000
+  },
+  "errors": [],
+  "identity": {
+   "pass": true,
+   "plugin": "PoCSynth.vst3",
+   "latency": 2048,
+   "block": 256,
+   "shift": -1408,
+   "alignBlock": 252,
+   "alignCandidates": 1,
+   "firstBlock": 0,
+   "blocks": 3750,
+   "identical": 3750,
+   "silentInRealtime": 0,
+   "mismatched": 0,
+   "firstMismatch": -1,
+   "maxDiffInMismatches": 0,
+   "referencePeak": 0.9063854217529297,
+   "replay": {
+    "ok": true,
+    "error": "",
+    "blocks": 3750,
+    "blockFrames": 256,
+    "sampleRate": 48000,
+    "outPorts": 1,
+    "loadMs": 635,
+    "processMs": 909,
+    "realtimeFactor": 22.002,
+    "slowBlocks": [
+     [
+      57,
+      13
+     ]
+    ]
+   },
+   "seconds": 32.347
+  }
+ },
+ "runs-ci:song:Dexed": {
+  "file": "Dexed.wclap.tar.gz",
+  "classId": "webclap:prometheos.vstloader.b73184588577b54f:prometheos.vstloader.b73184588577b54f",
+  "loadSeconds": 10.649099999999978,
+  "bootSeconds": 30.490629999999996,
+  "playedSeconds": 62.001764999999985,
+  "sampleRate": 48000,
+  "latency": 2048,
+  "block": 256,
+  "underrunBlocks": 1,
+  "skipped": 0,
+  "maxProcessUs": 19000,
+  "stalls": [],
+  "slowTurns": [
+   {
+    "block": 993,
+    "atSeconds": 5.270165000000008,
+    "turnMs": 19.009
+   },
+   {
+    "block": 1060,
+    "atSeconds": 5.6101449999999895,
+    "turnMs": 10.01
+   }
+  ],
+  "timeline": [
+   {
+    "seconds": 32,
+    "underruns": 1
+   },
+   {
+    "seconds": 42,
+    "underruns": 1
+   },
+   {
+    "seconds": 52,
+    "underruns": 1
+   },
+   {
+    "seconds": 62,
+    "underruns": 1
+   }
+  ],
+  "capture": {
+   "blocks": 3750,
+   "recordBytes": 2048,
+   "lostWhileCapturing": 0,
+   "inPorts": 0,
+   "outPorts": 1,
+   "block": 256,
+   "frames": 1056000
+  },
+  "errors": [],
+  "identity": {
+   "pass": false,
+   "error": "node:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\npage.evaluate: ErrnoError\n    at replay (/home/user/prometheos-webclap-vstloader/tests/identity.mjs:53:34)\n    at async file:///home/user/prometheos-webclap-vstloader/tests/identity.mjs:72:14\n\nNode.js v22.22.0\n"
+  }
+ },
+ "runs-ci:null": {
+  "seconds": 10,
+  "compensated": {
+   "frames": 480000,
+   "peak": [
+    2.220446049250313e-16,
+    0
+   ],
+   "nonZeroSamples": [
+    387153,
+    0
+   ]
+  },
+  "dryOnly": {
+   "frames": 96000,
+   "peak": [
+    0.8866812586784363,
+    0.8866812586784363
+   ],
+   "nonZeroSamples": [
+    78314,
+    78314
+   ]
+  },
+  "uncompensated": {
+   "frames": 96000,
+   "peak": [
+    1.0265175104141235,
+    1.026517391204834
+   ],
+   "nonZeroSamples": [
+    86506,
+    86506
+   ]
+  },
+  "invertUnderruns": 0,
+  "errors": []
+ },
+ "runs-ci:bzw": {
+  "blobBytes": 4604,
+  "stateBytes": 6022,
+  "stateChangedByParams": true,
+  "dataRoundTrip": true,
+  "sameStateAfterReopen": true,
+  "errors": []
+ },
+ "runs-ci-dexed:song:Dexed": {
+  "file": "Dexed.wclap.tar.gz",
+  "classId": "webclap:prometheos.vstloader.b73184588577b54f:prometheos.vstloader.b73184588577b54f",
+  "loadSeconds": 38.82760500000004,
+  "bootSeconds": 27.247219999999974,
+  "playedSeconds": 127.02117499999999,
+  "sampleRate": 48000,
+  "latency": 2048,
+  "block": 256,
+  "underrunBlocks": 0,
+  "skipped": 0,
+  "maxProcessUs": 27000,
+  "stalls": [
+   {
+    "atSeconds": 0.030130000000004657,
+    "ms": 9.95000000001164,
+    "maxLagBlocks": 6
+   },
+   {
+    "atSeconds": 5.270104999999981,
+    "ms": 10.030000000027961,
+    "maxLagBlocks": 6
+   }
+  ],
+  "slowTurns": [
+   {
+    "block": 982,
+    "atSeconds": 5.280135000000009,
+    "turnMs": 27.284
+   }
+  ],
+  "timeline": [
+   {
+    "seconds": 17,
+    "underruns": 0
+   },
+   {
+    "seconds": 27,
+    "underruns": 0
+   },
+   {
+    "seconds": 37,
+    "underruns": 0
+   },
+   {
+    "seconds": 47,
+    "underruns": 0
+   },
+   {
+    "seconds": 57,
+    "underruns": 0
+   },
+   {
+    "seconds": 67,
+    "underruns": 0
+   },
+   {
+    "seconds": 77,
+    "underruns": 0
+   },
+   {
+    "seconds": 87,
+    "underruns": 0
+   },
+   {
+    "seconds": 97,
+    "underruns": 0
+   },
+   {
+    "seconds": 107,
+    "underruns": 0
+   },
+   {
+    "seconds": 117,
+    "underruns": 0
+   },
+   {
+    "seconds": 127,
+    "underruns": 0
+   }
+  ],
+  "capture": {
+   "blocks": 938,
+   "recordBytes": 2048,
+   "lostWhileCapturing": 0,
+   "inPorts": 0,
+   "outPorts": 1,
+   "block": 256,
+   "frames": 336000
+  },
+  "errors": [],
+  "identity": {
+   "pass": true,
+   "plugin": "Dexed.dll",
+   "latency": 2048,
+   "block": 256,
+   "shift": 0,
+   "alignBlock": 93,
+   "alignCandidates": 2,
+   "firstBlock": 0,
+   "blocks": 938,
+   "identical": 938,
+   "silentInRealtime": 0,
+   "mismatched": 0,
+   "firstMismatch": -1,
+   "maxDiffInMismatches": 0,
+   "referencePeak": 0.7938934564590454,
+   "replay": {
+    "ok": true,
+    "error": "",
+    "blocks": 938,
+    "blockFrames": 256,
+    "sampleRate": 48000,
+    "outPorts": 1,
+    "loadMs": 9946,
+    "processMs": 1729,
+    "realtimeFactor": 2.893,
+    "slowBlocks": [
+     [
+      124,
+      22
+     ],
+     [
+      404,
+      24
+     ],
+     [
+      528,
+      26
+     ],
+     [
+      904,
+      36
+     ]
+    ]
+   },
+   "seconds": 32.467
+  }
+ },
+ "runs-ci:identity:Dexed (re-run)": {
+  "plugin": "Dexed.dll",
+  "latency": 2048,
+  "block": 256,
+  "shift": -2816,
+  "alignBlock": 104,
+  "alignCandidates": 3,
+  "firstBlock": 3,
+  "blocks": 3747,
+  "identical": 3747,
+  "silentInRealtime": 0,
+  "mismatched": 0,
+  "firstMismatch": -1,
+  "maxDiffInMismatches": 0,
+  "referencePeak": 0.7938934564590454,
+  "replay": {
+   "ok": true,
+   "error": "",
+   "blocks": 3750,
+   "blockFrames": 256,
+   "sampleRate": 48000,
+   "outPorts": 1,
+   "loadMs": 8214,
+   "processMs": 5938,
+   "realtimeFactor": 3.368,
+   "slowBlocks": [
+    [
+     74,
+     29
+    ],
+    [
+     410,
+     23
+    ],
+    [
+     907,
+     30
+    ],
+    [
+     993,
+     54
+    ],
+    [
+     1060,
+     10
+    ],
+    [
+     1131,
+     23
+    ],
+    [
+     1628,
+     28
+    ],
+    [
+     2114,
+     27
+    ],
+    [
+     2485,
+     22
+    ],
+    [
+     2972,
+     31
+    ],
+    [
+     3233,
+     22
+    ],
+    [
+     3638,
+     37
+    ]
+   ]
+  },
+  "seconds": 31.639
+ }
+}
