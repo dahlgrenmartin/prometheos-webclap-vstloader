@@ -43,11 +43,12 @@ browser page (web/)                        Boxedwine (WebAssembly)
 | Path | What |
 |---|---|
 | `wclap/` | The vstloader WebCLAP (`vstloader.c`, built by `wclap/build.sh` with wasi-sdk) and its frame protocol with the runtime. |
-| `runtime/` | The runtime page a host loads for the WebCLAP: boots Boxedwine, loads instances, relays blocks (`relay-worker.js`). |
-| `wrap/wrap.mjs` | Wraps a 32-bit `.dll` into a `.wclap` bundle. |
+| `runtime/` | The runtime page a host loads for the WebCLAP: boots Boxedwine, loads instances, relays blocks (`relay-worker.js`); and `wrap.html`, the browser wrapper. |
+| `wrap/` | Wraps a 32-bit `.dll` (VST2) or `.vst3` (VST3) into a `.wclap.tar.gz` bundle: `bundle.js` (shared with `wrap.html`) and `wrap.mjs` (Node). |
+| `.github/workflows/release.yml` | Builds Boxedwine, the runtime site and the wrapped test plugins; publishes them as a release on a `v*` tag. |
 | `include/prometheos_runtime.h` | The `prometheos.runtime/1` CLAP extension (plugin and host sides). |
 | `tests/buzz-remote/` | The wrapped plugins inside buzz-remote's real engine, in headless Chromium. |
-| `host/bridge.cpp`, `host/vst2_instance.cpp` | `vsthost --bridge`: real-time hosting through `/dev/vstbridge` (one thread per plugin instance), and `vsthost --replay`, the offline reference that renders a captured request stream through the same code. |
+| `host/bridge.cpp`, `host/plugin_instance.cpp` | `vsthost --bridge`: real-time hosting through `/dev/vstbridge` (one thread per plugin instance), and `vsthost --replay`, the offline reference that renders a captured request stream through the same code. A plugin is a `PluginInstance`: `vst2_instance.cpp` (AEffect) or `vst3_instance.cpp` (IComponent/IAudioProcessor with its controller, MIDI through the plugin's IMidiMapping, state as component + controller streams), chosen by the binary's exports. |
 | `include/vstbridge_abi.h` | The shared-memory layout of `/dev/vstbridge` (the single source of truth; `vstbridge_abi.json` is its golden layout, checked against the JS and TypeScript twins and the patch's copy). |
 | `web/realtime.html` | Streams a plugin live into an AudioWorklet (on-screen keyboard, computer keys, Web MIDI), with underrun and block-time readouts; `tests/realtime.mjs` and `tests/identity.mjs` drive it headlessly. |
 | `host/vsthost.cpp` | The Windows-side host (MinGW, i686). VST2 through a clean-room ABI header, VST3 through Steinberg's MIT-licensed `pluginterfaces` only. One-shot mode, or persistent `--serve <dir>` mode that takes jobs from a mailbox file. Writes a WAV, a JSON report (plugin info, parameters with display text, peak/RMS, non-finite sample count, load/render time) and a stage trace. `--play` also sends the render to the Windows audio device (`waveOut`), which Boxedwine plays through browser audio. |
@@ -199,20 +200,45 @@ host main thread: loads the page, hands it the memory, relays control frames
   The workers block on futexes on both sides, so audio never touches an event
   loop or the main thread. Frames between shim and runtime:
   `wclap/vstloader_protocol.h` (`runtime/protocol.js`).
-- **Wrapper** (`wrap/wrap.mjs`): a 32-bit `.dll` in, a `.wclap` out
-  (`module.wasm`, `resources/plugin.dll`, `resources/vstloader.txt`), after one
-  DESCRIBE in the runtime.
+- **Wrapper**: a 32-bit `.dll` (VST2) or `.vst3` (VST3) in, a `.wclap.tar.gz`
+  out (`module.wasm`, `resources/plugin.dll`, `resources/vstloader.txt`), after
+  one DESCRIBE in the runtime. In the browser: `runtime/wrap.html` on any
+  deployed site (its bundles name that site's runtime). From Node:
+  `wrap/wrap.mjs`. Both build the bundle with `wrap/bundle.js`.
 
 ```bash
 # the site with the runtime (and the shim, with wasi-sdk)
 WASI_SDK=/path/to/wasi-sdk BOXEDWINE_BUILD=/path/to/Build/MultiThreadedJit DIST=dist-mt WITH_DEXED=1 ./build.sh
-python3 serve.py 8080 dist-mt &
-node wrap/wrap.mjs app/Dexed.dll --site http://127.0.0.1:8080 --runtime /vstloader/runtime/index.html --out build/wraps/Dexed.wclap
+python3 serve.py 8080 dist-mt &   # http://127.0.0.1:8080/runtime/wrap.html wraps in the browser
+node wrap/wrap.mjs app/Dexed.dll --site http://127.0.0.1:8080 --runtime /vstloader/runtime/index.html --out build/wraps/Dexed.wclap.tar.gz
+node wrap/wrap.mjs app/PoCSynth.vst3 --site http://127.0.0.1:8080 --runtime /vstloader/runtime/index.html --out build/wraps/PoCSynth-vst3.wclap.tar.gz
 
-# the wrapped plugins inside buzz-remote's real engine (song/identity, null, state round trip)
-node tests/buzz-remote/build.mjs --buzz /path/to/prometheos-apps/apps/buzz-remote
-node tests/buzz-remote/run.mjs --scenarios song,null,bzw --plugin Dexed --seconds 600
+# the wrapped plugins inside buzz-remote's real engine (song/identity, null, state round trip);
+# --site takes any runtime site, e.g. an unpacked vstloader-runtime.tar.gz
+node tests/buzz-remote/build.mjs --buzz /path/to/prometheos-apps/apps/buzz-remote [--site dist-mt] [--plugins build/wraps]
+node tests/buzz-remote/run.mjs --scenarios song,null,bzw --plugin Dexed,PoCSynth-vst3 --seconds 600
 ```
+
+### Releases
+
+`.github/workflows/release.yml` builds everything on CI (Boxedwine at the
+pinned commit with `patches/boxedwine/`, Emscripten 6.0.11, the Wine
+filesystem, vsthost, the shim) and wraps the test plugins and Dexed. A `v*` tag
+publishes:
+
+- `vstloader-runtime.tar.gz`: `vstloader/` with `runtime/` (the runtime page,
+  `wrap.html`, the shim) and `boxedwine/`, plus `SOURCES.md` (where every part
+  comes from, and its license). A host unpacks it where it serves the
+  runtime: for buzz-remote in PrometheOS, next to the app, at
+  `<apps root>/vstloader/`.
+- `PoCSynth.wclap.tar.gz` (VST2), `PoCSynth-vst3.wclap.tar.gz` (VST3),
+  `PoCInvert.wclap.tar.gz` (an effect) and `Dexed.wclap.tar.gz` (GPL-3.0):
+  install them from buzz-remote's Plugins dialog.
+
+Bundles name their runtime by URL. A tag uses the repository variable
+`VSTLOADER_RUNTIME_URL` or `/prometheos-apps/vstloader/runtime/index.html`;
+`workflow_dispatch` takes another. For any other deployment, wrap with that
+deployment's `vstloader/runtime/wrap.html`.
 
 What a host needs to provide:
 
@@ -232,4 +258,5 @@ What a host needs to provide:
   pages): GPL-3.0 (`LICENSE`).
 - `vendor/pluginterfaces`: MIT (Steinberg Media Technologies).
 - Boxedwine: GPL-2.0-or-later. Wine: LGPL-2.1-or-later.
-- Dexed (optional download, not committed): GPL-3.0.
+- Dexed (optional download, not committed; wrapped in releases): GPL-3.0,
+  source at https://github.com/asb2m10/dexed/tree/v0.9.3.

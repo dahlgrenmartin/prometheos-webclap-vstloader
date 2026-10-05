@@ -1,0 +1,179 @@
+name: release
+
+# Builds everything a host needs to play 32-bit Windows plugins as WebCLAPs and,
+# on a v* tag, publishes it as a GitHub release:
+#
+#   vstloader-runtime.tar.gz   vstloader/: the runtime site a host serves on its
+#                              own origin (buzz-remote: next to the app, so at
+#                              <apps root>/vstloader/). runtime/ holds the
+#                              runtime page, the browser wrapper (wrap.html) and
+#                              the shim; boxedwine/ holds Boxedwine's
+#                              multithreaded build, Wine's filesystem and vsthost.
+#   *.wclap.tar.gz             wrapped plugins, ready for buzz-remote's Plugins
+#                              dialog: the PoC test plugins (VST2 and VST3) and
+#                              Dexed 0.9.3 (GPL-3.0, third-party).
+#
+# The bundles name their runtime by URL (--runtime). A tag uses the repository
+# variable VSTLOADER_RUNTIME_URL, or the PrometheOS deployment's path; a manual
+# run can pass another. Bundles for any other deployment come from that
+# deployment's own wrap.html.
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - 'build.sh'
+      - 'host/**'
+      - 'patches/**'
+      - 'runtime/**'
+      - 'wclap/**'
+      - 'web/**'
+      - 'wrap/**'
+  workflow_dispatch:
+    inputs:
+      runtime:
+        description: 'Runtime URL the wrapped plugins name'
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  BOXEDWINE_COMMIT: 509f6a7545e0827a27ed1b4ebab66ac1da4b1ea7
+  EMSDK_VERSION: 6.0.11
+  WASI_SDK_VERSION: '25'
+  PLAYWRIGHT_VERSION: 1.56.1
+  DEFAULT_RUNTIME_URL: /prometheos-apps/vstloader/runtime/index.html
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize VST3 pluginterfaces and CLAP
+        run: git submodule update --init vendor/pluginterfaces vendor/clap
+      - name: Install MinGW (i686)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-mingw-w64-i686 g++-mingw-w64-i686 zip
+
+      - name: wasi-sdk
+        run: |
+          curl -fsSL -o /tmp/wasi-sdk.tar.gz "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux.tar.gz"
+          tar xzf /tmp/wasi-sdk.tar.gz -C /tmp
+          echo "WASI_SDK=/tmp/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux" >> "$GITHUB_ENV"
+
+      # Boxedwine (GPL-2.0-or-later) at a pinned commit with patches/boxedwine/,
+      # built with Emscripten: the multithreaded JIT build the runtime needs.
+      - name: Cache the Boxedwine build
+        id: boxedwine-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/boxedwine-build
+          key: boxedwine-mtjit-${{ env.BOXEDWINE_COMMIT }}-emsdk-${{ env.EMSDK_VERSION }}-${{ hashFiles('patches/boxedwine/*.patch') }}
+      - name: Build Boxedwine (multithreaded JIT)
+        if: steps.boxedwine-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --filter=blob:none https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install "$EMSDK_VERSION"
+          ~/emsdk/emsdk activate "$EMSDK_VERSION"
+          source ~/emsdk/emsdk_env.sh
+          git clone --filter=blob:none https://github.com/danoon2/Boxedwine ~/Boxedwine
+          git -C ~/Boxedwine checkout "$BOXEDWINE_COMMIT"
+          git -C ~/Boxedwine apply "$GITHUB_WORKSPACE"/patches/boxedwine/*.patch
+          make -C ~/Boxedwine/project/emscripten -j"$(nproc)" multiThreadedJit
+          mkdir -p ~/boxedwine-build
+          cp -r ~/Boxedwine/project/emscripten/Build/MultiThreadedJit/. ~/boxedwine-build/
+          ls -la ~/boxedwine-build
+
+      - name: Cache the Wine filesystem
+        uses: actions/cache@v4
+        with:
+          path: .cache/TinyCore15Wine11.0.zip
+          key: wine-fs-e38234f93e85b1714c54f87ec3246a8275683b091219a8a4651ea7e3acd16b79
+
+      - name: Build the site (vsthost, test plugins, shim, runtime)
+        run: BOXEDWINE_BUILD=~/boxedwine-build DIST=dist-mt WITH_DEXED=1 ./build.sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Playwright (Chromium) for the wrapper
+        run: |
+          npm install --no-save --no-package-lock "playwright@${PLAYWRIGHT_VERSION}"
+          npx playwright install --with-deps chromium
+
+      - name: Wrap the plugins
+        env:
+          RUNTIME_URL: ${{ inputs.runtime || vars.VSTLOADER_RUNTIME_URL || env.DEFAULT_RUNTIME_URL }}
+        run: |
+          python3 serve.py 8080 dist-mt > /tmp/serve.log 2>&1 &
+          sleep 1
+          mkdir -p out
+          for plugin in PoCSynth.dll:PoCSynth PoCSynth.vst3:PoCSynth-vst3 PoCInvert.dll:PoCInvert Dexed.dll:Dexed; do
+            node wrap/wrap.mjs "app/${plugin%%:*}" --site http://127.0.0.1:8080 --runtime "$RUNTIME_URL" \
+              --out "out/${plugin##*:}.wclap.tar.gz"
+          done
+          for bundle in out/*.wclap.tar.gz; do tar xzOf "$bundle" resources/vstloader.txt | sed -n 1,9p; done
+
+      - name: Package the runtime
+        run: |
+          mkdir -p pkg/vstloader
+          # cp, not the hard links build.sh makes: GitHub Pages refuses links.
+          cp -r dist-mt/runtime dist-mt/boxedwine pkg/vstloader/
+          cp LICENSE pkg/vstloader/LICENSE
+          cat > pkg/vstloader/SOURCES.md <<EOF
+          # vstloader runtime ${GITHUB_REF_NAME}
+
+          Built from https://github.com/${GITHUB_REPOSITORY} at ${GITHUB_SHA} (GPL-3.0, LICENSE).
+
+          - runtime/: the vstloader runtime page, the browser wrapper (wrap.html) and the
+            vstloader WebCLAP shim (vstloader.wasm, from wclap/ in that repository).
+          - boxedwine/boxedwine.*: Boxedwine (GPL-2.0-or-later), https://github.com/danoon2/Boxedwine
+            at ${BOXEDWINE_COMMIT} with the patches in patches/boxedwine/ of the repository above,
+            built with Emscripten ${EMSDK_VERSION}.
+          - boxedwine/TinyCore15Wine11.0.zip: Boxedwine's Wine 11.0 filesystem (Wine: LGPL-2.1-or-later;
+            Tiny Core Linux), from https://boxedwine.org/v2/10/TinyCore15Wine11.0.zip.
+          - boxedwine/vstpoc.zip: vsthost.exe and the test plugins (this repository), and
+            Dexed 0.9.3 (GPL-3.0, https://github.com/asb2m10/dexed/tree/v0.9.3).
+
+          Serve this directory on the host's own origin (buzz-remote: <apps root>/vstloader/),
+          cross-origin isolated (COOP/COEP). Wrap plugins at vstloader/runtime/wrap.html.
+          EOF
+          tar -czf out/vstloader-runtime.tar.gz -C pkg vstloader
+          (cd out && sha256sum * > SHA256SUMS)
+          ls -la out && cat out/SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vstloader-release
+          path: out/
+          compression-level: 0
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vstloader-release
+          path: out
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "vstloader $GITHUB_REF_NAME" --notes "$(cat <<'EOF'
+          32-bit Windows VST2 and VST3 plugins as WebCLAPs, for hosts with prometheos.runtime/1 (buzz-remote).
+
+          - **vstloader-runtime.tar.gz**: the runtime site. Unpack it so the host serves `vstloader/` on its own origin, cross-origin isolated; for buzz-remote, next to the app (`<apps root>/vstloader/`). `vstloader/runtime/wrap.html` wraps any 32-bit `.dll` or `.vst3` into a bundle.
+          - **\*.wclap.tar.gz**: wrapped plugins for buzz-remote's Plugins dialog: PoC Synth (VST2 and VST3), PoC Invert (an effect) and Dexed 0.9.3 (GPL-3.0). They name the runtime at the URL shown in each bundle's `resources/vstloader.txt`.
+
+          Sources and licenses: `vstloader/SOURCES.md` in the runtime archive.
+          EOF
+          )"

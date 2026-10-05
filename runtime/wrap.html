@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wrap a Windows plugin</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f6f4; --fg: #1d1d1b; --muted: #6b6b66; --line: #d6d6d0; --accent: #2f5fb3; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #19191a; --fg: #ecece8; --muted: #a2a29c; --line: #3a3a3c; --accent: #8fb0ee; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p { margin: 8px 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  label { display: block; margin: 20px 0 6px; font-weight: 600; }
+  input[type=text] { width: 100%; box-sizing: border-box; padding: 6px 8px; font: 13px ui-monospace, monospace;
+    background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: 4px; }
+  #drop { margin-top: 20px; padding: 28px 16px; border: 2px dashed var(--line); border-radius: 8px; text-align: center; }
+  #drop.over { border-color: var(--accent); }
+  #log { margin-top: 20px; padding: 10px 12px; min-height: 3em; border: 1px solid var(--line); border-radius: 4px;
+    font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  a.download { display: inline-block; margin-top: 16px; padding: 8px 14px; border-radius: 4px; background: var(--accent);
+    color: var(--bg); text-decoration: none; font-weight: 600; }
+  iframe { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Wrap a Windows plugin</h1>
+  <p>Turns a 32-bit Windows VST2 (<code>.dll</code>) or VST3 (<code>.vst3</code>) plugin into a WebCLAP bundle
+    (<code>.wclap.tar.gz</code>) that buzz-remote installs from its Plugins dialog. The plugin runs in this site's
+    runtime: Wine inside Boxedwine, in the browser.</p>
+  <p class="muted">The first wrap boots the emulator (about 30–60 s). Your file stays in this browser.</p>
+
+  <label for="runtime">Runtime the bundle will use</label>
+  <input id="runtime" type="text" spellcheck="false">
+  <p class="muted">This site's own runtime. The host must serve it on its own origin; buzz-remote loads only runtimes it trusts.</p>
+
+  <div id="drop">
+    <p>Drop a <code>.dll</code> or <code>.vst3</code> here, or <input id="file" type="file" accept=".dll,.vst3"></p>
+  </div>
+  <div id="log" aria-live="polite"></div>
+  <div id="result"></div>
+</main>
+<iframe id="runtimeFrame" title="Plugin runtime" src="index.html?boot=1"></iframe>
+<script type="module" src="wrap.js"></script>
+</body>
+</html>

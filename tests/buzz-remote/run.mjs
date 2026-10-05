@@ -3,7 +3,8 @@
 //   node tests/buzz-remote/build.mjs --buzz <prometheos-apps>/apps/buzz-remote
 //   node tests/buzz-remote/run.mjs [--scenarios song,null,bzw] [--plugin Dexed]
 //        [--seconds 600] [--capture 20] [--null-seconds 10] [--out dir]
-// song: the wrapped plugin (build/wraps/<plugin>.wclap) as a machine playing
+// song: the wrapped plugin (build/wraps/<plugin>.wclap.tar.gz; "<name>-vst3" for a
+//   wrapped <name>.vst3) as a machine playing
 //   8-voice chords for --seconds; the first --capture seconds of the master
 //   output and of the requests its channel published are replayed offline by
 //   vsthost --replay (tests/identity.mjs --align 1, dist-st/).
@@ -73,7 +74,9 @@ try {
 
   for (const plugin of opt.plugin.split(",")) {
     if (!scenarios.has("song")) break;
-    const file = `${plugin}.wclap`;
+    const file = `${plugin}.wclap.tar.gz`;
+    // The binary the offline replay loads: <name>.dll, or <name>.vst3 for a "-vst3" bundle.
+    const binary = plugin.endsWith("-vst3") ? `${plugin.slice(0, -5)}.vst3` : `${plugin}.dll`;
     const r = await page.evaluate(([f, s, c]) => window.vstloaderHarness.songScenario(f, s, c), [file, Number(opt.seconds), Number(opt.capture)]);
     say({ song: plugin, ...r, timeline: undefined });
     const dir = join(opt.out, `song-${plugin}`);
@@ -89,7 +92,7 @@ try {
     header.writeUInt32LE(1, 28); // warm-up, as the bridge's LOAD does
     writeFileSync(join(dir, "capture.bin"), Buffer.concat([header, await download(`${file}:requests`)]));
     writeFileSync(join(dir, "realtime.f32"), await download(`${file}:output`));
-    writeFileSync(join(dir, "realtime.json"), JSON.stringify({ plugin: `${plugin}.dll`, ...r }, null, 2));
+    writeFileSync(join(dir, "realtime.json"), JSON.stringify({ plugin: binary, ...r }, null, 2));
     let identity;
     try {
       const output = execFileSync("node", [join(root, "tests/identity.mjs"), replayBase, dir, "--align", "1"], {

@@ -14,7 +14,7 @@
 #include "bridge.h"
 
 #include "json.h"
-#include "vst2_instance.h"
+#include "plugin_instance.h"
 #include "vstbridge_abi.h"
 
 #include <windows.h>
@@ -81,7 +81,7 @@ struct Instance {
     double rate = 48000;
     int block = 256;
     bool warmup = true;
-    Vst2Instance plugin;
+    std::unique_ptr<PluginInstance> plugin;
     HANDLE thread = nullptr;
     HANDLE loaded = CreateEventA(nullptr, FALSE, FALSE, nullptr);
     HANDLE commandDone = CreateEventA(nullptr, FALSE, FALSE, nullptr);
@@ -104,13 +104,13 @@ void runCommand(Instance &in) {
     std::string error;
     switch (in.op) {
     case VSTB_OP_DESCRIBE: {
-        const std::string json = in.plugin.describeJson();
+        const std::string json = in.plugin->describeJson();
         in.reply.assign(json.begin(), json.end());
         break;
     }
-    case VSTB_OP_GET_STATE: in.reply = in.plugin.getState(); break;
+    case VSTB_OP_GET_STATE: in.reply = in.plugin->getState(); break;
     case VSTB_OP_SET_STATE:
-        if (!in.plugin.setState(in.payload.data(), in.payload.size(), error)) {
+        if (!in.plugin->setState(in.payload.data(), in.payload.size(), error)) {
             in.status = VSTB_STATUS_ERROR;
             in.reply.assign(error.begin(), error.end());
         }
@@ -124,17 +124,18 @@ DWORD WINAPI instanceMain(void *arg) {
     Instance &in = *static_cast<Instance *>(arg);
     prepareAudioThread();
     const double t0 = nowMs();
-    if (!in.plugin.load(in.path, in.rate, in.block, in.error)) {
+    in.plugin = loadPlugin(in.path, in.rate, in.block, in.error);
+    if (!in.plugin) {
         SetEvent(in.loaded);
         return 1;
     }
-    if (in.warmup) in.plugin.warmUp();
+    if (in.warmup) in.plugin->warmUp();
     in.loadMs = nowMs() - t0;
-    in.describe = in.plugin.describeJson();
+    in.describe = in.plugin->describeJson();
     HANDLE device = openDevice();
     if (device == INVALID_HANDLE_VALUE) {
         in.error = "cannot open Z:\\dev\\vstbridge, error " + std::to_string(GetLastError());
-        in.plugin.close();
+        in.plugin->close();
         SetEvent(in.loaded);
         return 1;
     }
@@ -143,14 +144,14 @@ DWORD WINAPI instanceMain(void *arg) {
     attach.channel = static_cast<uint32_t>(in.channel);
     attach.sampleRate = static_cast<uint32_t>(in.rate);
     attach.blockFrames = static_cast<uint32_t>(in.block);
-    attach.inPorts = static_cast<uint32_t>(in.plugin.inPorts());
-    attach.outPorts = static_cast<uint32_t>(in.plugin.outPorts());
-    attach.pluginLatency = static_cast<uint32_t>(in.plugin.latency());
+    attach.inPorts = static_cast<uint32_t>(in.plugin->inPorts());
+    attach.outPorts = static_cast<uint32_t>(in.plugin->outPorts());
+    attach.pluginLatency = static_cast<uint32_t>(in.plugin->latency());
     writeAll(device, &attach, sizeof attach);
     SetEvent(in.loaded);
 
-    const DWORD inBytes = in.plugin.inPorts() * 2 * in.block * sizeof(float);
-    const DWORD outBytes = in.plugin.outPorts() * 2 * in.block * sizeof(float);
+    const DWORD inBytes = in.plugin->inPorts() * 2 * in.block * sizeof(float);
+    const DWORD outBytes = in.plugin->outPorts() * 2 * in.block * sizeof(float);
     uint8_t *request = pageAlloc(VSTB_REQUEST_BYTES + inBytes);
     uint8_t *response = pageAlloc(VSTB_RESPONSE_HEADER_BYTES + outBytes);
     LARGE_INTEGER freq, a, b;
@@ -166,17 +167,17 @@ DWORD WINAPI instanceMain(void *arg) {
         }
         if (n != static_cast<long>(VSTB_REQUEST_BYTES + inBytes)) continue;
         QueryPerformanceCounter(&a);
-        in.plugin.process(r, reinterpret_cast<const float *>(request + VSTB_REQUEST_BYTES),
+        in.plugin->process(r, reinterpret_cast<const float *>(request + VSTB_REQUEST_BYTES),
                           reinterpret_cast<float *>(response + VSTB_RESPONSE_HEADER_BYTES));
         QueryPerformanceCounter(&b);
         auto &h = *reinterpret_cast<vstb_response *>(response);
         h.blockIndex = r.blockIndex;
         h.frames = static_cast<uint32_t>(in.block);
         h.processUs = static_cast<uint32_t>((b.QuadPart - a.QuadPart) * 1000000 / freq.QuadPart);
-        h.status = in.plugin.takeIoChanged() ? VSTB_RESP_IO_CHANGED : 0;
+        h.status = in.plugin->takeIoChanged() ? VSTB_RESP_IO_CHANGED : 0;
         writeAll(device, response, VSTB_RESPONSE_HEADER_BYTES + outBytes);
     }
-    in.plugin.close();
+    in.plugin->close();
     CloseHandle(device);
     VirtualFree(request, 0, MEM_RELEASE);
     VirtualFree(response, 0, MEM_RELEASE);
@@ -371,9 +372,10 @@ DWORD WINAPI replayMain(void *arg) {
     }
     std::memcpy(&job.header, capture.data(), sizeof job.header);
     const ReplayHeader &h = job.header;
-    Vst2Instance plugin;
     const double t0 = nowMs();
-    if (!plugin.load(job.plugin, h.sampleRate, static_cast<int>(h.blockFrames), job.error)) return 1;
+    std::unique_ptr<PluginInstance> loaded = loadPlugin(job.plugin, h.sampleRate, static_cast<int>(h.blockFrames), job.error);
+    if (!loaded) return 1;
+    PluginInstance &plugin = *loaded;
     if (h.warmup) plugin.warmUp();
     job.loadMs = nowMs() - t0;
     if (static_cast<uint32_t>(plugin.inPorts()) != h.inPorts || static_cast<uint32_t>(plugin.outPorts()) != h.outPorts) {

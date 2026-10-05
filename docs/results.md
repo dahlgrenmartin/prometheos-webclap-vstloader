@@ -255,6 +255,43 @@ separately). The margins match the in-tree machine's (Phase 1: 2 turns over
 
 ![Dexed through buzz-remote's WebCLAP path: 602 s, 0 underrun blocks](webclap-buzz-dexed-600s.png)
 
+### VST3, and the release packaging
+
+Measured on 2026-10-04 the same way, with the bridge's plugins behind one
+`PluginInstance` interface (VST2 or VST3, by the binary's exports), the bundles
+built as `.wclap.tar.gz` by `wrap/bundle.js`, and the runtime served from an
+unpacked `vstloader-runtime.tar.gz` (the release workflow's packaging step, run
+locally), not from the build tree.
+
+| Check | Result |
+|---|---|
+| PoC Synth **VST3** (`PoCSynth.vst3`): DESCRIBE in the runtime | VST3 synth, 3 parameters, 0 in / 1 out, latency 0 |
+| PoC Synth VST3, 62 s of 8-voice chords | **0 underrun blocks**, longest device turn 5 ms |
+| **PoC Synth VST3 identity** (20 s) | **3,750 of 3,750 blocks bit-identical** to `vsthost --replay` |
+| Dexed (VST2), 62 s | 0 underrun blocks; identity **3,737 of 3,737** |
+| Dexed alone, 127 s (build tree) | 0 underrun blocks; one 19.2 ms device turn at 5.3 s |
+| Dry + PoC Invert null | right channel 0, left at most 2.2e-16 |
+| State round trip (Dexed) | byte-identical after reopen |
+| Browser wrapper (`runtime/wrap.html`) | `PoCSynth.vst3` to a bundle in 32.5 s including the emulator's boot; same files and descriptor as `wrap.mjs` (the runtime URL is the page's own) |
+
+One run with Dexed loaded right after the VST3 instance (two instances in one
+emulator on 4 vCPUs) had 2 underrun blocks at L = 2,048; Dexed alone had none.
+Runs: `runs/release-buzz-60s.json`.
+
+The same checks against the **CI-built release** (`release.yml`'s artifact on
+pull request #2: Boxedwine built from source on the runner, bundles naming
+`/prometheos-apps/vstloader/runtime/index.html`, the runtime unpacked and
+served at that path, as in the apps deployment):
+
+| Check | Result |
+|---|---|
+| PoC Synth VST3, 62 s | 0 underrun blocks; identity **3,750 / 3,750** |
+| Dexed alone, 127 s | **0 underrun blocks**; identity 938 / 938 (5 s capture) |
+| Dexed right after the VST3 instance, 62 s | 1 underrun block (at 32 s); identity **3,747 / 3,747** |
+| PoC Invert null; Dexed state round trip | 2.2e-16 / 0; byte-identical after reopen |
+
+Runs: `runs/release-ci-buzz.json`.
+
 ## Natively (Linux, Boxedwine x64 JIT)
 
 | Plugin | Format | Result |

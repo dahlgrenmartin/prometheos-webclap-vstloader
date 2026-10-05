@@ -5,3 +5,5 @@ app/
 dist-*/
 node_modules
 tests/buzz-remote/out/
+out/
+pkg/

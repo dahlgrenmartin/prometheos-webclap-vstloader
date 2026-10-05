@@ -39,7 +39,7 @@ jobs:
           curl -fsSL -o /tmp/wasi-sdk.tar.gz https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/wasi-sdk-25.0-x86_64-linux.tar.gz
           tar xzf /tmp/wasi-sdk.tar.gz -C /tmp
           WASI_SDK=/tmp/wasi-sdk-25.0-x86_64-linux ./wclap/build.sh
-          for f in runtime/*.js wrap/*.mjs tests/buzz-remote/*.mjs; do node --check "$f"; done
+          for f in runtime/*.js wrap/*.js wrap/*.mjs tests/buzz-remote/*.mjs; do node --check "$f"; done
       - uses: actions/upload-artifact@v4
         with:
           name: vstloader-windows

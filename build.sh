@@ -32,7 +32,7 @@ $CC -O2 -std=c11 -Wall -shared -Iinclude plugins/vst2/poc_invert_vst2.c plugins/
   -o build/PoCInvert.dll -static-libgcc
 $CXX -O2 -std=c++17 -Wall -shared -Iinclude -Ivendor plugins/vst3/poc_synth_vst3.cpp plugins/vst3/poc_synth_vst3.def \
   -o build/PoCSynth.vst3 -static -Wl,--kill-at -Wl,--enable-stdcall-fixup
-$CXX -O2 -std=c++17 -Wall -Iinclude -Ivendor host/vsthost.cpp host/bridge.cpp host/vst2_instance.cpp \
+$CXX -O2 -std=c++17 -Wall -Iinclude -Ivendor host/vsthost.cpp host/bridge.cpp host/plugin_instance.cpp host/vst2_instance.cpp host/vst3_instance.cpp \
   -o build/vsthost.exe -static -lwinmm
 $CC -O2 tests/wintest.c -o build/wintest.exe
 $CC -O2 -Wall tests/devtest.c -o build/devtest.exe
@@ -83,10 +83,11 @@ cp web/index.html web/app.js web/realtime.html web/realtime.js web/realtime-work
   web/vstbridge.js web/vstbridge-abi.js "$DIST/"
 printf '%s\n' "$plugins_json" > "$DIST/plugins.json"
 
-# The WebCLAP's runtime page (prometheos.runtime/1) and, with wasi-sdk, the shim.
+# The WebCLAP's runtime page (prometheos.runtime/1), the browser wrapper
+# (runtime/wrap.html) and, with wasi-sdk, the shim.
 mkdir -p "$DIST/runtime"
 cp runtime/index.html runtime/runtime.js runtime/relay-worker.js runtime/protocol.js \
-  web/vstbridge.js web/vstbridge-abi.js "$DIST/runtime/"
+  runtime/wrap.html runtime/wrap.js wrap/bundle.js web/vstbridge.js web/vstbridge-abi.js "$DIST/runtime/"
 WASI_SDK=${WASI_SDK:-/opt/wasi-sdk}
 if [ -x "$WASI_SDK/bin/clang" ]; then
   WASI_SDK="$WASI_SDK" ./wclap/build.sh
