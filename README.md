@@ -165,6 +165,15 @@ with a matching `.emscripten_url` marker.
   build under Xvfb, so JUCE plugins like Dexed, which create a message window
   inside `VSTPluginMain`, block there natively. The browser build has a real
   canvas and Dexed works there.
+- **Firefox: about two boots per process.** Boxedwine's JIT compiles guest
+  code into thousands of small wasm modules, and Firefox caps compiled code per
+  content process (about 1.8 GB measured on Linux x64). Booting and loading
+  Dexed maps about 950 MB of it; a reload does not free the old page's code
+  before the next boot, so the third boot in a tab (measured: 945, 1,478, then
+  1,839 MB and out of memory) or a second runtime in another tab fails. The
+  runtime then stops with "the browser ran out of memory for the emulator";
+  restarting Firefox clears it. Chrome has no such cap in practice. Fewer,
+  larger modules (Boxedwine's grouped JIT cache) would lower the cost.
 - **Start-up cost.** The Wine filesystem zip is 158 MB, and every page load
   starts from a fresh in-memory prefix. Boxedwine can persist the prefix and its
   JIT cache in IndexedDB, which would make later visits faster.

@@ -74,19 +74,47 @@ async function bootOnce() {
   Object.assign(frameEl.style, { position: "fixed", width: "0", height: "0", border: "0", visibility: "hidden" });
   frameEl.src = `${base.replace(/\/?$/, "/")}boxedwine.html?${query}`;
   document.body.appendChild(frameEl);
+  // When Boxedwine dies (typically because the browser could not allocate its
+  // memory or compiled code), Emscripten aborts with an unhandled rejection in
+  // the frame. Fail at once rather than at the timeout, and drop the frame so
+  // its memory can be reclaimed. Its window exists once navigation commits,
+  // well before the module compiles, so a short poll attaches in time.
+  let aborted = null;
+  const watch = () => {
+    const win = frameEl.isConnected ? frameEl.contentWindow : null;
+    if (!win) return;
+    if (win.location.href === "about:blank") {
+      setTimeout(watch, 10);
+      return;
+    }
+    win.addEventListener("unhandledrejection", (event) => {
+      const text = String(event.reason?.message ?? event.reason);
+      if (/Aborted\(/.test(text)) aborted ??= text.replace(/\. Build with -sASSERTIONS.*$/s, "");
+    });
+  };
+  watch();
+  const fail = (error) => {
+    frameEl.remove();
+    throw error;
+  };
   for (;;) {
-    if (performance.now() - started > 15 * 60 * 1000) throw new Error("Boxedwine did not start in time");
+    if (performance.now() - started > 15 * 60 * 1000) fail(new Error("Boxedwine did not start in time"));
     const mod = frameEl.contentWindow?.Module;
+    if (aborted !== null) {
+      fail(new Error(/out of memory/i.test(aborted)
+        ? `the browser ran out of memory for the emulator (${aborted}). Close other tabs that run plugins, or restart the browser, and try again`
+        : `Boxedwine stopped: ${aborted}`));
+    }
     if (mod && typeof mod._vstbridge_region === "function" && mod.HEAPU8) {
       const buffer = mod.HEAPU8.buffer;
       if (Object.prototype.toString.call(buffer) !== "[object SharedArrayBuffer]") {
-        throw new Error("Boxedwine's memory is not shared: the page needs cross-origin isolation");
+        fail(new Error("Boxedwine's memory is not shared: the page needs cross-origin isolation"));
       }
       const region = new BridgeRegion(buffer, mod._vstbridge_region());
       if (region.valid && region.serving) {
         const control = new ControlClient(region);
         const pong = await control.request(E.OP_PING, 0, "", 60000);
-        if (pong.status !== E.STATUS_OK) throw new Error("vsthost --bridge did not answer");
+        if (pong.status !== E.STATUS_OK) fail(new Error("vsthost --bridge did not answer"));
         emulator = { region, control };
         state.phase = "ready";
         state.bootSeconds = (performance.now() - started) / 1000;
