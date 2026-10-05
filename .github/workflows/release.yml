@@ -17,6 +17,10 @@ name: release
 # variable VSTLOADER_RUNTIME_URL, or the PrometheOS deployment's path; a manual
 # run can pass another. Bundles for any other deployment come from that
 # deployment's own wrap.html.
+#
+# A release made on GitHub first (which creates the tag) gets the files
+# attached; a manual run with `tag` publishes to that release, creating it
+# and its tag at this commit if needed.
 
 on:
   push:
@@ -35,6 +39,9 @@ on:
     inputs:
       runtime:
         description: 'Runtime URL the wrapped plugins name'
+        default: ''
+      tag:
+        description: 'Publish to this release tag (for example v0.1.0); empty builds only'
         default: ''
 
 permissions:
@@ -120,13 +127,15 @@ jobs:
           for bundle in out/*.wclap.tar.gz; do tar xzOf "$bundle" resources/vstloader.txt | sed -n 1,9p; done
 
       - name: Package the runtime
+        env:
+          RELEASE_NAME: ${{ inputs.tag || github.ref_name }}
         run: |
           mkdir -p pkg/vstloader
           # cp, not the hard links build.sh makes: GitHub Pages refuses links.
           cp -r dist-mt/runtime dist-mt/boxedwine pkg/vstloader/
           cp LICENSE pkg/vstloader/LICENSE
           cat > pkg/vstloader/SOURCES.md <<EOF
-          # vstloader runtime ${GITHUB_REF_NAME}
+          # vstloader runtime ${RELEASE_NAME}
 
           Built from https://github.com/${GITHUB_REPOSITORY} at ${GITHUB_SHA} (GPL-3.0, LICENSE).
 
@@ -154,7 +163,7 @@ jobs:
           compression-level: 0
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -167,8 +176,9 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "vstloader $GITHUB_REF_NAME" --notes "$(cat <<'EOF'
+          notes="$(cat <<'EOF'
           32-bit Windows VST2 and VST3 plugins as WebCLAPs, for hosts with prometheos.runtime/1 (buzz-remote).
 
           - **vstloader-runtime.tar.gz**: the runtime site. Unpack it so the host serves `vstloader/` on its own origin, cross-origin isolated; for buzz-remote, next to the app (`<apps root>/vstloader/`). `vstloader/runtime/wrap.html` wraps any 32-bit `.dll` or `.vst3` into a bundle.
@@ -177,3 +187,13 @@ jobs:
           Sources and licenses: `vstloader/SOURCES.md` in the runtime archive.
           EOF
           )"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            # Made on GitHub first: attach the files, and the notes if it has none.
+            gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber
+            if [ -z "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)" ]; then
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "$notes"
+            fi
+          else
+            gh release create "$TAG" out/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "vstloader $TAG" --notes "$notes"
+          fi
