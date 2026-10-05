@@ -117,7 +117,7 @@ jobs:
             node wrap/wrap.mjs "app/${plugin%%:*}" --site http://127.0.0.1:8080 --runtime "$RUNTIME_URL" \
               --out "out/${plugin##*:}.wclap.tar.gz"
           done
-          for bundle in out/*.wclap.tar.gz; do tar xzOf "$bundle" resources/vstloader.txt | head -9; done
+          for bundle in out/*.wclap.tar.gz; do tar xzOf "$bundle" resources/vstloader.txt | sed -n 1,9p; done
 
       - name: Package the runtime
         run: |
