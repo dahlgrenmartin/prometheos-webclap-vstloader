@@ -1,0 +1,381 @@
+{
+  "song:Dexed": {
+    "file": "Dexed.wclap.tar.gz",
+    "classId": "webclap:prometheos.vstloader.b73184588577b54f:prometheos.vstloader.b73184588577b54f",
+    "loadSeconds": 46.06856999999983,
+    "bootSeconds": 30.982384999999777,
+    "playedSeconds": 62.02028499999968,
+    "sampleRate": 48000,
+    "latency": 2048,
+    "block": 256,
+    "underrunBlocks": 0,
+    "skipped": 0,
+    "maxProcessUs": 22000,
+    "stalls": [],
+    "slowTurns": [
+      {
+        "block": 1002,
+        "atSeconds": 5.2701000000000935,
+        "turnMs": 22.274
+      }
+    ],
+    "timeline": [
+      {
+        "seconds": 32,
+        "underruns": 0
+      },
+      {
+        "seconds": 42,
+        "underruns": 0
+      },
+      {
+        "seconds": 52,
+        "underruns": 0
+      },
+      {
+        "seconds": 62,
+        "underruns": 0
+      }
+    ],
+    "capture": {
+      "blocks": 3750,
+      "recordBytes": 2048,
+      "lostWhileCapturing": 0,
+      "inPorts": 0,
+      "outPorts": 1,
+      "block": 256,
+      "frames": 1056000
+    },
+    "errors": [],
+    "identity": {
+      "pass": true,
+      "plugin": "Dexed.dll",
+      "latency": 2048,
+      "block": 256,
+      "shift": -5248,
+      "alignBlock": 114,
+      "alignCandidates": 12,
+      "firstBlock": 13,
+      "blocks": 3737,
+      "identical": 3737,
+      "silentInRealtime": 0,
+      "mismatched": 0,
+      "firstMismatch": -1,
+      "maxDiffInMismatches": 0,
+      "referencePeak": 0.7938934564590454,
+      "replay": {
+        "ok": true,
+        "error": "",
+        "blocks": 3750,
+        "blockFrames": 256,
+        "sampleRate": 48000,
+        "outPorts": 1,
+        "loadMs": 10888,
+        "processMs": 8094,
+        "realtimeFactor": 2.471,
+        "slowBlocks": [
+          [
+            172,
+            9
+          ],
+          [
+            176,
+            15
+          ],
+          [
+            182,
+            11
+          ],
+          [
+            199,
+            13
+          ],
+          [
+            201,
+            13
+          ],
+          [
+            205,
+            12
+          ],
+          [
+            315,
+            8
+          ],
+          [
+            316,
+            18
+          ],
+          [
+            317,
+            30
+          ],
+          [
+            330,
+            10
+          ],
+          [
+            334,
+            8
+          ],
+          [
+            343,
+            10
+          ],
+          [
+            347,
+            11
+          ],
+          [
+            355,
+            12
+          ],
+          [
+            399,
+            26
+          ],
+          [
+            417,
+            10
+          ],
+          [
+            533,
+            26
+          ],
+          [
+            599,
+            10
+          ],
+          [
+            656,
+            25
+          ],
+          [
+            774,
+            8
+          ],
+          [
+            794,
+            14
+          ],
+          [
+            796,
+            15
+          ],
+          [
+            799,
+            29
+          ],
+          [
+            1002,
+            17
+          ],
+          [
+            1069,
+            12
+          ],
+          [
+            1135,
+            10
+          ],
+          [
+            1140,
+            12
+          ],
+          [
+            1145,
+            12
+          ],
+          [
+            1150,
+            13
+          ],
+          [
+            1155,
+            12
+          ],
+          [
+            1163,
+            36
+          ],
+          [
+            1457,
+            24
+          ],
+          [
+            1760,
+            23
+          ],
+          [
+            1993,
+            24
+          ],
+          [
+            2362,
+            12
+          ],
+          [
+            2367,
+            12
+          ],
+          [
+            2373,
+            12
+          ],
+          [
+            2378,
+            10
+          ],
+          [
+            2394,
+            32
+          ],
+          [
+            2754,
+            32
+          ],
+          [
+            3019,
+            31
+          ],
+          [
+            3203,
+            25
+          ],
+          [
+            3562,
+            35
+          ],
+          [
+            3648,
+            8
+          ],
+          [
+            3654,
+            8
+          ]
+        ]
+      },
+      "seconds": 41.597
+    }
+  },
+  "song:PoCSynth-vst3": {
+    "file": "PoCSynth-vst3.wclap.tar.gz",
+    "classId": "webclap:prometheos.vstloader.7295f6941a573f99:prometheos.vstloader.7295f6941a573f99",
+    "loadSeconds": 1.7363950000000186,
+    "bootSeconds": 30.982384999999777,
+    "playedSeconds": 62.06217499999981,
+    "sampleRate": 48000,
+    "latency": 2048,
+    "block": 256,
+    "underrunBlocks": 0,
+    "skipped": 0,
+    "maxProcessUs": 5000,
+    "stalls": [],
+    "slowTurns": [],
+    "timeline": [
+      {
+        "seconds": 32,
+        "underruns": 0
+      },
+      {
+        "seconds": 42,
+        "underruns": 0
+      },
+      {
+        "seconds": 52,
+        "underruns": 0
+      },
+      {
+        "seconds": 62,
+        "underruns": 0
+      }
+    ],
+    "capture": {
+      "blocks": 3750,
+      "recordBytes": 2048,
+      "lostWhileCapturing": 0,
+      "inPorts": 0,
+      "outPorts": 1,
+      "block": 256,
+      "frames": 1056000
+    },
+    "errors": [],
+    "identity": {
+      "pass": true,
+      "plugin": "PoCSynth.vst3",
+      "latency": 2048,
+      "block": 256,
+      "shift": -1024,
+      "alignBlock": 251,
+      "alignCandidates": 1,
+      "firstBlock": 0,
+      "blocks": 3750,
+      "identical": 3750,
+      "silentInRealtime": 0,
+      "mismatched": 0,
+      "firstMismatch": -1,
+      "maxDiffInMismatches": 0,
+      "referencePeak": 0.9063854217529297,
+      "replay": {
+        "ok": true,
+        "error": "",
+        "blocks": 3750,
+        "blockFrames": 256,
+        "sampleRate": 48000,
+        "outPorts": 1,
+        "loadMs": 614,
+        "processMs": 1067,
+        "realtimeFactor": 18.744,
+        "slowBlocks": []
+      },
+      "seconds": 22.421
+    }
+  },
+  "null": {
+    "seconds": 10,
+    "compensated": {
+      "frames": 480000,
+      "peak": [
+        2.220446049250313e-16,
+        0
+      ],
+      "nonZeroSamples": [
+        387153,
+        0
+      ]
+    },
+    "dryOnly": {
+      "frames": 96000,
+      "peak": [
+        0.8866812586784363,
+        0.8866812586784363
+      ],
+      "nonZeroSamples": [
+        78314,
+        78314
+      ]
+    },
+    "uncompensated": {
+      "frames": 96000,
+      "peak": [
+        1.0265175104141235,
+        1.026517391204834
+      ],
+      "nonZeroSamples": [
+        86506,
+        86506
+      ]
+    },
+    "invertUnderruns": 0,
+    "errors": []
+  },
+  "bzw": {
+    "blobBytes": 4604,
+    "stateBytes": 6022,
+    "stateChangedByParams": true,
+    "dataRoundTrip": true,
+    "sameStateAfterReopen": true,
+    "errors": []
+  }
+}
