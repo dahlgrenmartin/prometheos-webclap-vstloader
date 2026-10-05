@@ -3,7 +3,7 @@
 // wrapped plugins and this repository's built site mounted at /vstloader/
 // (runtime/ and boxedwine/, the multithreaded build):
 //   node tests/buzz-remote/build.mjs --buzz <prometheos-apps>/apps/buzz-remote
-//        [--site dist-mt] [--plugins <dir with *.wclap>]
+//        [--site dist-mt] [--plugins <dir with *.wclap.tar.gz>]
 // esbuild is taken from the buzz-remote checkout's node_modules.
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, symlinkSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -29,7 +29,7 @@ await build({ ...common, entryPoints: [join(buzz, "src/engine/buzz-worklet.ts")]
 cpSync(join(here, "harness.html"), join(out, "harness.html"));
 cpSync(join(here, "recorder-worklet.js"), join(out, "recorder-worklet.js"));
 for (const name of existsSync(opt.plugins) ? readdirSync(opt.plugins) : []) {
-  if (name.endsWith(".wclap")) cpSync(join(opt.plugins, name), join(out, "plugins", name));
+  if (name.endsWith(".wclap.tar.gz")) cpSync(join(opt.plugins, name), join(out, "plugins", name));
 }
 const site = resolve(root, opt.site);
 if (!existsSync(join(site, "runtime", "index.html"))) throw new Error(`no runtime in ${site} (build.sh with DIST=${opt.site})`);

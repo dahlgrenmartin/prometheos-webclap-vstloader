@@ -125,7 +125,7 @@ function runtimeInstance(machineId: string) {
   return runtime()?.instances().find((i) => String(i.id).startsWith(`${machineId}#`) && Number(i.generation) > 0) ?? null;
 }
 
-/** Installs a wrapped .wclap as buzz-remote's package layer does. */
+/** Installs a wrapped .wclap.tar.gz as buzz-remote's package layer does. */
 async function install(file: string): Promise<WebClapPackage> {
   const e = await startEngine();
   const bytes = new Uint8Array(await (await fetch(`plugins/${file}`)).arrayBuffer());
@@ -414,7 +414,7 @@ async function songScenario(file: string, seconds: number, captureSeconds: numbe
 /** Compensation: a generator dry and through the PoC Invert (out = -in). */
 async function nullScenario(seconds: number): Promise<unknown> {
   const e = await startEngine();
-  const pkg = installed.find((p) => p.source.kind === "local" && p.source.location === "PoCInvert.wclap") ?? (await install("PoCInvert.wclap"));
+  const pkg = installed.find((p) => p.source.kind === "local" && p.source.location === "PoCInvert.wclap.tar.gz") ?? (await install("PoCInvert.wclap.tar.gz"));
   const fm = machine("fm", "fmsynth", 4, 50);
   const inv = machine("inv", pkg.manifest.classes[0]!.classId, 0, 200);
   const connections = [edge("dry", "fm", "master"), edge("send", "fm", "inv"), edge("wet", "inv", "master")];
@@ -460,7 +460,7 @@ async function nullScenario(seconds: number): Promise<unknown> {
  */
 async function bzwScenario(): Promise<unknown> {
   const e = await startEngine();
-  const pkg = installed.find((p) => p.source.kind === "local" && p.source.location === "Dexed.wclap") ?? (await install("Dexed.wclap"));
+  const pkg = installed.find((p) => p.source.kind === "local" && p.source.location === "Dexed.wclap.tar.gz") ?? (await install("Dexed.wclap.tar.gz"));
   const classId = pkg.manifest.classes[0]!.classId;
   const cls = machineClassById(classId)!;
   const inst = machine("dexed", classId, 8, 100);

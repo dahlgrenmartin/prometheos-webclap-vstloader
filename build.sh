@@ -83,10 +83,11 @@ cp web/index.html web/app.js web/realtime.html web/realtime.js web/realtime-work
   web/vstbridge.js web/vstbridge-abi.js "$DIST/"
 printf '%s\n' "$plugins_json" > "$DIST/plugins.json"
 
-# The WebCLAP's runtime page (prometheos.runtime/1) and, with wasi-sdk, the shim.
+# The WebCLAP's runtime page (prometheos.runtime/1), the browser wrapper
+# (runtime/wrap.html) and, with wasi-sdk, the shim.
 mkdir -p "$DIST/runtime"
 cp runtime/index.html runtime/runtime.js runtime/relay-worker.js runtime/protocol.js \
-  web/vstbridge.js web/vstbridge-abi.js "$DIST/runtime/"
+  runtime/wrap.html runtime/wrap.js wrap/bundle.js web/vstbridge.js web/vstbridge-abi.js "$DIST/runtime/"
 WASI_SDK=${WASI_SDK:-/opt/wasi-sdk}
 if [ -x "$WASI_SDK/bin/clang" ]; then
   WASI_SDK="$WASI_SDK" ./wclap/build.sh

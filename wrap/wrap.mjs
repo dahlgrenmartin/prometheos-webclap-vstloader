@@ -1,25 +1,25 @@
-// Wraps a 32-bit Windows VST2 plugin into a WebCLAP bundle for any host that
-// supports prometheos.runtime/1:
-//   node wrap/wrap.mjs <plugin.dll> --site <url serving a built site>
-//        [--runtime <runtime page URL in the host>] [--out <Name.wclap>]
+// Wraps a 32-bit Windows plugin (VST2 .dll or VST3 .vst3) into a WebCLAP
+// bundle for any host that supports prometheos.runtime/1:
+//   node wrap/wrap.mjs <plugin.dll|plugin.vst3> --site <url serving a built site>
+//        [--runtime <runtime page URL in the host>] [--out <Name.wclap.tar.gz>]
 // The plugin is described once in the runtime (headless Chromium: the site's
-// runtime/index.html, which boots Boxedwine), and the bundle gets the shim
-// (build/vstloader.wasm), the binary and the frozen descriptor:
+// runtime/index.html, which boots Boxedwine), and the bundle (wrap/bundle.js)
+// gets the shim (build/vstloader.wasm), the binary and the frozen descriptor:
 //   module.wasm, resources/plugin.dll, resources/vstloader.txt
 // --runtime is the URL the host loads the runtime from (it must serve it on
 // its own origin); a relative URL resolves against the host page.
+// The same thing runs in a browser: the site's runtime/wrap.html.
 // CHROMIUM=/path/to/chrome uses a preinstalled browser.
-import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { buildBundle, bundleFileName, checkBinary } from "./bundle.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const [dllPath, ...rest] = process.argv.slice(2);
 if (!dllPath) {
-  console.error("usage: node wrap/wrap.mjs <plugin.dll> --site <url> [--runtime <url>] [--out <file.wclap>]");
+  console.error("usage: node wrap/wrap.mjs <plugin.dll|plugin.vst3> --site <url> [--runtime <url>] [--out <file.wclap.tar.gz>]");
   process.exit(2);
 }
 const opt = { site: "", runtime: "/vstloader/runtime/index.html", out: "", wasm: join(root, "build", "vstloader.wasm") };
@@ -27,9 +27,7 @@ for (let i = 0; i < rest.length; i += 2) opt[rest[i].replace(/^--/, "")] = rest[
 if (!opt.site) throw new Error("--site is required (a served dist-mt/)");
 
 const binary = readFileSync(dllPath);
-if (binary.readUInt16LE(0) !== 0x5a4d) throw new Error(`${dllPath} is not a Windows binary`);
-const pe = binary.readUInt32LE(0x3c);
-if (binary.readUInt16LE(pe + 4) !== 0x14c) throw new Error(`${dllPath} is not a 32-bit (i386) binary; only 32-bit plugins run`);
+checkBinary(binary, basename(dllPath));
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
 let result;
@@ -48,32 +46,18 @@ try {
   await browser.close();
 }
 
+if (result.error) throw new Error(`the runtime could not describe ${dllPath}: ${result.error}`);
 const { sha256, describe } = result;
-const clean = (text) => String(text ?? "").replace(/[\t\r\n]/g, " ").trim();
-const lines = [
-  `id=prometheos.vstloader.${sha256.slice(0, 16)}`,
-  `name=${clean(describe.name) || basename(dllPath, ".dll")}`,
-  `vendor=${clean(describe.vendor)}`,
-  `version=${describe.vendorVersion ? String(describe.vendorVersion) : "1.0.0"}`,
-  `sha256=${sha256}`,
-  `runtime=${opt.runtime}`,
-  "dll=plugin.dll",
-  `synth=${describe.synth ? 1 : 0}`,
-  `inPorts=${describe.inPorts.length}`,
-  `outPorts=${describe.outPorts.length}`,
-  `latency=${Math.max(0, describe.latency | 0)}`,
-  "bridgeLatency=2048",
-  "block=256",
-  ...describe.params.map((p) => `param=${clean(p.name)}\t${clean(p.label)}\t${Number(p.value).toFixed(6)}`),
-];
-const work = mkdtempSync(join(tmpdir(), "vstloader-wrap-"));
-mkdirSync(join(work, "resources"));
-copyFileSync(opt.wasm, join(work, "module.wasm"));
-copyFileSync(dllPath, join(work, "resources", "plugin.dll"));
-writeFileSync(join(work, "resources", "vstloader.txt"), `${lines.join("\n")}\n`);
-const out = resolve(opt.out || `${basename(dllPath, ".dll")}.wclap`);
+const bundle = await buildBundle({
+  wasm: readFileSync(opt.wasm),
+  plugin: binary,
+  describe,
+  sha256,
+  runtime: opt.runtime,
+  fileName: basename(dllPath),
+});
+const out = resolve(opt.out || bundleFileName(describe, basename(dllPath)));
 rmSync(out, { force: true });
-execFileSync("zip", ["-q", "-X", "-0", "-r", out, "module.wasm", "resources"], { cwd: work });
-rmSync(work, { recursive: true, force: true });
-console.log(JSON.stringify({ out, sha256, name: describe.name, params: describe.params.length, synth: describe.synth,
-  inPorts: describe.inPorts.length, outPorts: describe.outPorts.length, latency: describe.latency }));
+writeFileSync(out, bundle);
+console.log(JSON.stringify({ out, sha256, format: describe.format, name: describe.name, params: describe.params.length,
+  synth: describe.synth, inPorts: describe.inPorts.length, outPorts: describe.outPorts.length, latency: describe.latency }));
