@@ -132,7 +132,7 @@ jobs:
         run: |
           mkdir -p pkg/vstloader
           # cp, not the hard links build.sh makes: GitHub Pages refuses links.
-          cp -r dist-mt/runtime dist-mt/boxedwine pkg/vstloader/
+          cp -r dist-mt/runtime dist-mt/boxedwine dist-mt/coi-sw.js pkg/vstloader/
           cp LICENSE pkg/vstloader/LICENSE
           cat > pkg/vstloader/SOURCES.md <<EOF
           # vstloader runtime ${RELEASE_NAME}
@@ -141,6 +141,8 @@ jobs:
 
           - runtime/: the vstloader runtime page, the browser wrapper (wrap.html) and the
             vstloader WebCLAP shim (vstloader.wasm, from wclap/ in that repository).
+          - coi-sw.js: the service worker wrap.html registers for cross-origin isolation
+            where the host sends no COOP/COEP headers.
           - boxedwine/boxedwine.*: Boxedwine (GPL-2.0-or-later), https://github.com/danoon2/Boxedwine
             at ${BOXEDWINE_COMMIT} with the patches in patches/boxedwine/ of the repository above,
             built with Emscripten ${EMSDK_VERSION}.

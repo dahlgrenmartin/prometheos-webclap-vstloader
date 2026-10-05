@@ -203,7 +203,10 @@ host main thread: loads the page, hands it the memory, relays control frames
 - **Wrapper**: a 32-bit `.dll` (VST2) or `.vst3` (VST3) in, a `.wclap.tar.gz`
   out (`module.wasm`, `resources/plugin.dll`, `resources/vstloader.txt`), after
   one DESCRIBE in the runtime. In the browser: `runtime/wrap.html` on any
-  deployed site (its bundles name that site's runtime). From Node:
+  deployed site (its bundles name that site's runtime). Where the host cannot
+  send COOP/COEP (GitHub Pages), it registers the site's `coi-sw.js` (from
+  `runtime/coi-sw.js`), a service worker over the site, and reloads isolated.
+  From Node:
   `wrap/wrap.mjs`. Both build the bundle with `wrap/bundle.js`.
 
 ```bash
@@ -227,7 +230,7 @@ filesystem, vsthost, the shim) and wraps the test plugins and Dexed. A `v*` tag
 publishes:
 
 - `vstloader-runtime.tar.gz`: `vstloader/` with `runtime/` (the runtime page,
-  `wrap.html`, the shim) and `boxedwine/`, plus `SOURCES.md` (where every part
+  `wrap.html`, the shim), `boxedwine/` and `coi-sw.js`, plus `SOURCES.md` (where every part
   comes from, and its license). A host unpacks it where it serves the
   runtime: for buzz-remote in PrometheOS, next to the app, at
   `<apps root>/vstloader/`.

@@ -88,6 +88,8 @@ printf '%s\n' "$plugins_json" > "$DIST/plugins.json"
 mkdir -p "$DIST/runtime"
 cp runtime/index.html runtime/runtime.js runtime/relay-worker.js runtime/protocol.js \
   runtime/wrap.html runtime/wrap.js wrap/bundle.js web/vstbridge.js web/vstbridge-abi.js "$DIST/runtime/"
+# At the site root, so its scope covers runtime/ and the boxedwine/ frame.
+cp runtime/coi-sw.js "$DIST/coi-sw.js"
 WASI_SDK=${WASI_SDK:-/opt/wasi-sdk}
 if [ -x "$WASI_SDK/bin/clang" ]; then
   WASI_SDK="$WASI_SDK" ./wclap/build.sh

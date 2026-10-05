@@ -9,6 +9,33 @@ const logBox = $("log");
 const result = $("result");
 runtimeInput.value = new URL("index.html", location.href).href;
 
+// The emulator needs cross-origin isolation. A host that cannot send COOP/COEP
+// (GitHub Pages) gets it from the site's coi-sw.js: register it, then reload once under
+// its control. The session flag stops a reload loop where that cannot work.
+const RELOADED = "vstloader-coi-reload";
+async function isolate() {
+  if (crossOriginIsolated) {
+    sessionStorage.removeItem(RELOADED);
+    $("runtimeFrame").src = "index.html?boot=1";
+    return;
+  }
+  if (!("serviceWorker" in navigator) || !isSecureContext) {
+    say("This browser cannot isolate the page here (no service workers on this origin), so the emulator cannot run.");
+    return;
+  }
+  if (sessionStorage.getItem(RELOADED)) {
+    say("This page is still not cross-origin isolated after enabling it, so the emulator cannot run. " +
+      "Serve it with COOP: same-origin and COEP: require-corp.");
+    return;
+  }
+  say("Enabling cross-origin isolation…");
+  await navigator.serviceWorker.register("../coi-sw.js", { scope: "../" });
+  await navigator.serviceWorker.ready;
+  sessionStorage.setItem(RELOADED, "1");
+  location.reload();
+}
+isolate().catch((error) => say(`Error: could not enable cross-origin isolation: ${error?.message ?? error}`));
+
 function say(text) {
   logBox.textContent += `${logBox.textContent ? "\n" : ""}${text}`;
 }
